@@ -863,8 +863,6 @@ public class Main {
             sub.setBorder(new EmptyBorder(0, 0, 10, 0));
             sub.setForeground(new Color(51, 51, 51));
 
-            JLabel hint = new JLabel("Demo IDs: 243UC246FC | E2001 | E2002 | C3001");
-            hint.setForeground(new Color(102, 102, 102));
 
             JButton loginBtn = new JButton(new AbstractAction("Login") {
                 @Override public void actionPerformed(ActionEvent e) { doLogin(); }
@@ -886,7 +884,6 @@ public class Main {
 
             card.add(row);
             card.add(Box.createVerticalStrut(10));
-            card.add(hint);
 
             add(card);
         }
