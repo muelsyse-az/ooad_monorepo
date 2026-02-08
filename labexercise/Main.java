@@ -1,5 +1,3 @@
-
-
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.AbstractTableModel;
@@ -12,22 +10,25 @@ import java.util.*;
 import java.util.List;
 
 /**
- * Seminar Management System (Java Swing) - In-memory MVP
+ * Seminar Management System (Java Swing) - In-memory MVP+
  * Roles: Student, Evaluator, Coordinator
  *
- * Run:
- *   javac -d out src/app/Main.java
- *   java -cp out app.Main
+ * Added:
+ *  - People's Choice voting (1 vote per student)
+ *  - Conflict checks (submission double-assignment, evaluator double-booking, slot already taken)
+ *  - Reports (Schedule, Evaluation Summary, People's Choice, Conflict Report)
+ *
  */
+
 public class Main {
 
     // ---------------------------
-    // Main Boot
+    // Main Boot (kept as your preferred main)
     // ---------------------------
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             AppContext ctx = new AppContext();
-            seedDemoData(ctx); 
+            seedDemoData(ctx);
 
             AppFrame frame = new AppFrame(ctx);
             frame.setVisible(true);
@@ -36,32 +37,48 @@ public class Main {
 
     private static void seedDemoData(AppContext ctx) {
         // Users
-        ctx.userRepo.save(new Student("S1001", "Zarif", "Dr. Rahman"));
-        ctx.userRepo.save(new Student("S1002", "Nafisa", "Dr. Karim"));
+        ctx.userRepo.save(new Student("243UC246FC", "Zarif", "Dr. Rahman"));
+        ctx.userRepo.save(new Student("243UC67GG", "Aidil", "Dr. Karim"));
+        ctx.userRepo.save(new Student("243UC2FJH", "Jason", "Dr. Lim"));
 
-        ctx.userRepo.save(new Evaluator("E2001", "Eva One"));
-        ctx.userRepo.save(new Evaluator("E2002", "Eva Two"));
+        ctx.userRepo.save(new Evaluator("E2001", "Dr. Faruk"));
+        ctx.userRepo.save(new Evaluator("E2002", "Dr. Siti"));
 
         ctx.userRepo.save(new Coordinator("C3001", "Coord One"));
 
-        // Example submission
+        // Example submissions
         Submission sub = ctx.submissionService.register(
-                "S1001",
-                "AI for Seminar Scheduling",
-                "We propose a simple heuristic to schedule seminar sessions.",
+                "243UC246FC",
+                "AI for Healthcare",
+                "We propose a High-tech healthcare system for the future.",
                 "Dr. Rahman",
                 PresentationType.ORAL,
                 ""
         );
 
-        // Example session + slots
-        SeminarSession ses = ctx.sessionService.createSession(LocalDate.now().plusDays(3), "MMU Hall", PresentationType.ORAL);
-        TimeSlot slot1 = ctx.sessionService.addSlot(ses.sessionId, LocalTime.of(10, 0), LocalTime.of(10, 15));
-        TimeSlot slot2 = ctx.sessionService.addSlot(ses.sessionId, LocalTime.of(10, 15), LocalTime.of(10, 30));
+        Submission sub2 = ctx.submissionService.register(
+                "243UC67GG",
+                "Sustainable Energy Solutions",
+                "A poster on green and sustainable energy solutions.",
+                "Dr. Karim",
+                PresentationType.POSTER,
+                ""
+        );
+
+        // Example sessions + slots
+        SeminarSession oral = ctx.sessionService.createSession(LocalDate.now().plusDays(3), "MMU Hall", PresentationType.ORAL);
+        TimeSlot slot1 = ctx.sessionService.addSlot(oral.sessionId, LocalTime.of(10, 0), LocalTime.of(10, 15));
+        ctx.sessionService.addSlot(oral.sessionId, LocalTime.of(10, 15), LocalTime.of(10, 30));
+
+        SeminarSession poster = ctx.sessionService.createSession(LocalDate.now().plusDays(3), "MMU Foyer", PresentationType.POSTER);
+        TimeSlot slot3 = ctx.sessionService.addSlot(poster.sessionId, LocalTime.of(11, 0), LocalTime.of(12, 0));
 
         // Assign submission + evaluator
-        ctx.assignmentService.assignSubmissionToSlot(ses.sessionId, slot1.slotId, sub.submissionId);
-        ctx.assignmentService.assignEvaluatorToSlot(ses.sessionId, slot1.slotId, "E2001");
+        ctx.assignmentService.assignSubmissionToSlot(oral.sessionId, slot1.slotId, sub.submissionId);
+        ctx.assignmentService.assignEvaluatorToSlot(oral.sessionId, slot1.slotId, "E2001");
+
+        ctx.assignmentService.assignSubmissionToSlot(poster.sessionId, slot3.slotId, sub2.submissionId);
+        ctx.assignmentService.assignEvaluatorToSlot(poster.sessionId, slot3.slotId, "E2002");
     }
 
     // ---------------------------
@@ -72,14 +89,17 @@ public class Main {
         final SubmissionRepo submissionRepo = new SubmissionRepo();
         final SessionRepo sessionRepo = new SessionRepo();
         final EvaluationRepo evaluationRepo = new EvaluationRepo();
+        final VoteRepo voteRepo = new VoteRepo();
 
         final AuthService authService = new AuthService(userRepo);
         final SubmissionService submissionService = new SubmissionService(submissionRepo, userRepo);
         final SessionService sessionService = new SessionService(sessionRepo);
         final AssignmentService assignmentService = new AssignmentService(sessionRepo, submissionRepo, userRepo);
         final EvaluationService evaluationService = new EvaluationService(evaluationRepo, sessionRepo, submissionRepo, userRepo);
-        final ReportService reportService = new ReportService(sessionRepo, submissionRepo, evaluationRepo);
-        final AwardService awardService = new AwardService(submissionRepo, evaluationRepo);
+
+        final VoteService voteService = new VoteService(voteRepo, submissionRepo, userRepo);
+        final ReportService reportService = new ReportService(sessionRepo, submissionRepo, evaluationRepo, voteRepo);
+        final AwardService awardService = new AwardService(submissionRepo, evaluationRepo, voteRepo);
     }
 
     // ---------------------------
@@ -134,7 +154,7 @@ public class Main {
             this.studentId = studentId;
         }
 
-        @Override public String toString() { return submissionId + " - " + title; }
+        @Override public String toString() { return submissionId + " - " + title + " (" + preferredType + ")"; }
     }
 
     static class SeminarSession {
@@ -172,7 +192,7 @@ public class Main {
         }
 
         @Override public String toString() {
-            return slotId + " (" + start + " - " + end + ")";
+            return slotId + " (" + start + " - " + end + ")" + (submissionId == null ? "" : " [Presenter=" + submissionId + "]");
         }
     }
 
@@ -188,7 +208,6 @@ public class Main {
             this.evaluationId = evaluationId;
             this.submissionId = submissionId;
             this.evaluatorId = evaluatorId;
-            // default scores
             for (RubricCriterion c : RubricCriterion.values()) scores.put(c, 0);
         }
 
@@ -248,6 +267,33 @@ public class Main {
             return out;
         }
         List<Evaluation> all() { return new ArrayList<>(map.values()); }
+    }
+
+    static class VoteRepo {
+        // studentId -> submissionId (1 vote per student)
+        private final Map<String, String> studentVote = new LinkedHashMap<>();
+
+        void castVote(String studentId, String submissionId) {
+            studentVote.put(studentId, submissionId);
+        }
+
+        boolean hasVoted(String studentId) {
+            return studentVote.containsKey(studentId);
+        }
+
+        String getVoteOf(String studentId) {
+            return studentVote.get(studentId);
+        }
+
+        int totalVotes() { return studentVote.size(); }
+
+        Map<String, Integer> countVotesBySubmission() {
+            Map<String, Integer> counts = new HashMap<>();
+            for (String subId : studentVote.values()) {
+                counts.put(subId, counts.getOrDefault(subId, 0) + 1);
+            }
+            return counts;
+        }
     }
 
     // ---------------------------
@@ -340,10 +386,21 @@ public class Main {
             Submission sub = submissionRepo.find(submissionId);
             if (sub == null) throw new IllegalArgumentException("Submission not found: " + submissionId);
 
-            // optional rule: session type matches submission preferredType
+            // rule: session type matches preferred
             if (ses.type != sub.preferredType) {
                 throw new IllegalArgumentException("Type mismatch: session is " + ses.type + " but submission is " + sub.preferredType);
             }
+
+            // conflict: slot already has a different presenter
+            if (slot.submissionId != null && !slot.submissionId.equals(submissionId)) {
+                throw new IllegalArgumentException("Slot already has presenter: " + slot.submissionId);
+            }
+
+            // conflict: submission already assigned elsewhere (any slot in any session)
+            if (isSubmissionAssignedElsewhere(submissionId, sessionId, slotId)) {
+                throw new IllegalArgumentException("Submission already assigned to another slot.");
+            }
+
             slot.submissionId = submissionId;
         }
 
@@ -353,7 +410,42 @@ public class Main {
             User u = userRepo.find(evaluatorId);
             if (u == null || u.role != Role.EVALUATOR) throw new IllegalArgumentException("Invalid evaluator: " + evaluatorId);
 
+            // conflict: evaluator double-booked (same date overlap)
+            if (isEvaluatorDoubleBooked(evaluatorId, ses.date, slot.start, slot.end, sessionId, slotId)) {
+                throw new IllegalArgumentException("Evaluator is already booked in an overlapping slot on " + ses.date);
+            }
+
             slot.evaluatorIds.add(evaluatorId);
+        }
+
+        // Used in conflict report too
+        boolean isSubmissionAssignedElsewhere(String submissionId, String targetSessionId, String targetSlotId) {
+            for (SeminarSession s : sessionRepo.all()) {
+                for (TimeSlot t : s.slots) {
+                    if (t.submissionId == null) continue;
+                    if (!t.submissionId.equals(submissionId)) continue;
+
+                    boolean sameTarget = s.sessionId.equals(targetSessionId) && t.slotId.equals(targetSlotId);
+                    if (!sameTarget) return true;
+                }
+            }
+            return false;
+        }
+
+        boolean isEvaluatorDoubleBooked(String evaluatorId, LocalDate date, LocalTime start, LocalTime end,
+                                       String targetSessionId, String targetSlotId) {
+            for (SeminarSession s : sessionRepo.all()) {
+                if (!s.date.equals(date)) continue;
+                for (TimeSlot t : s.slots) {
+                    if (s.sessionId.equals(targetSessionId) && t.slotId.equals(targetSlotId)) continue;
+                    if (t.evaluatorIds.contains(evaluatorId) && timesOverlap(start, end, t.start, t.end)) return true;
+                }
+            }
+            return false;
+        }
+
+        boolean timesOverlap(LocalTime aStart, LocalTime aEnd, LocalTime bStart, LocalTime bEnd) {
+            return aStart.isBefore(bEnd) && bStart.isBefore(aEnd);
         }
 
         private SeminarSession requireSession(String sessionId) {
@@ -423,15 +515,41 @@ public class Main {
         }
     }
 
+    static class VoteService {
+        private final VoteRepo voteRepo;
+        private final SubmissionRepo submissionRepo;
+        private final UserRepo userRepo;
+
+        VoteService(VoteRepo voteRepo, SubmissionRepo submissionRepo, UserRepo userRepo) {
+            this.voteRepo = voteRepo;
+            this.submissionRepo = submissionRepo;
+            this.userRepo = userRepo;
+        }
+
+        void castVote(String studentId, String submissionId) {
+            User u = userRepo.find(studentId);
+            if (u == null || u.role != Role.STUDENT) throw new IllegalArgumentException("Invalid student.");
+
+            Submission s = submissionRepo.find(submissionId);
+            if (s == null) throw new IllegalArgumentException("Submission not found.");
+
+            if (voteRepo.hasVoted(studentId)) throw new IllegalArgumentException("You already voted (1 vote only).");
+
+            voteRepo.castVote(studentId, submissionId);
+        }
+    }
+
     static class ReportService {
         private final SessionRepo sessionRepo;
         private final SubmissionRepo submissionRepo;
         private final EvaluationRepo evaluationRepo;
+        private final VoteRepo voteRepo;
 
-        ReportService(SessionRepo sessionRepo, SubmissionRepo submissionRepo, EvaluationRepo evaluationRepo) {
+        ReportService(SessionRepo sessionRepo, SubmissionRepo submissionRepo, EvaluationRepo evaluationRepo, VoteRepo voteRepo) {
             this.sessionRepo = sessionRepo;
             this.submissionRepo = submissionRepo;
             this.evaluationRepo = evaluationRepo;
+            this.voteRepo = voteRepo;
         }
 
         String scheduleReport() {
@@ -446,12 +564,13 @@ public class Main {
                 for (TimeSlot slot : ses.slots) {
                     sb.append("  ").append(slot.start).append("-").append(slot.end).append(" | ").append(slot.slotId);
                     if (slot.submissionId == null) {
-                        sb.append(" | (no presenter)\n");
+                        sb.append(" | (no presenter)");
                     } else {
                         Submission sub = submissionRepo.find(slot.submissionId);
                         sb.append(" | ").append(sub == null ? slot.submissionId : sub.title)
-                                .append(" | Evaluators: ").append(slot.evaluatorIds).append("\n");
+                                .append(" [").append(slot.submissionId).append("]");
                     }
+                    sb.append(" | Evaluators: ").append(slot.evaluatorIds).append("\n");
                 }
                 sb.append("\n");
             }
@@ -481,15 +600,123 @@ public class Main {
             }
             return sb.toString();
         }
+
+        String peopleChoiceReport() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("=== PEOPLE'S CHOICE VOTING ===\n");
+            sb.append("Total votes cast: ").append(voteRepo.totalVotes()).append("\n\n");
+
+            Map<String, Integer> counts = voteRepo.countVotesBySubmission();
+            if (counts.isEmpty()) {
+                sb.append("No votes yet.\n");
+                return sb.toString();
+            }
+
+            List<Map.Entry<String, Integer>> entries = new ArrayList<>(counts.entrySet());
+            entries.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+
+            for (Map.Entry<String, Integer> e : entries) {
+                Submission s = submissionRepo.find(e.getKey());
+                sb.append(e.getKey())
+                        .append(" | ")
+                        .append(s == null ? "(unknown)" : s.title)
+                        .append(" | votes=").append(e.getValue())
+                        .append("\n");
+            }
+            return sb.toString();
+        }
+
+        String conflictReport(SessionRepo sessionRepo, SubmissionRepo submissionRepo) {
+            // Basic scan: evaluator overlaps on same date, duplicate submission assignment, slot duplicate presenter
+            StringBuilder sb = new StringBuilder();
+            sb.append("=== CONFLICT REPORT ===\n\n");
+
+            // 1) Submission assigned more than once
+            Map<String, List<String>> subToPlaces = new HashMap<>();
+            for (SeminarSession ses : sessionRepo.all()) {
+                for (TimeSlot slot : ses.slots) {
+                    if (slot.submissionId == null) continue;
+                    String key = slot.submissionId;
+                    subToPlaces.computeIfAbsent(key, k -> new ArrayList<>())
+                            .add(ses.sessionId + ":" + slot.slotId);
+                }
+            }
+            boolean any = false;
+            for (Map.Entry<String, List<String>> e : subToPlaces.entrySet()) {
+                if (e.getValue().size() > 1) {
+                    any = true;
+                    Submission s = submissionRepo.find(e.getKey());
+                    sb.append("Submission double-assigned: ")
+                            .append(e.getKey()).append(" | ")
+                            .append(s == null ? "(unknown)" : s.title)
+                            .append(" -> ").append(e.getValue()).append("\n");
+                }
+            }
+
+            // 2) Evaluator double-booking overlaps (same date)
+            // Build list of assignments by evaluator
+            Map<String, List<SlotRef>> evMap = new HashMap<>();
+            for (SeminarSession ses : sessionRepo.all()) {
+                for (TimeSlot slot : ses.slots) {
+                    if (slot.evaluatorIds.isEmpty()) continue;
+                    for (String ev : slot.evaluatorIds) {
+                        evMap.computeIfAbsent(ev, k -> new ArrayList<>())
+                                .add(new SlotRef(ses.date, slot.start, slot.end, ses.sessionId, slot.slotId));
+                    }
+                }
+            }
+            for (Map.Entry<String, List<SlotRef>> e : evMap.entrySet()) {
+                List<SlotRef> refs = e.getValue();
+                // compare every pair (small scale)
+                for (int i = 0; i < refs.size(); i++) {
+                    for (int j = i + 1; j < refs.size(); j++) {
+                        SlotRef a = refs.get(i), b = refs.get(j);
+                        if (!a.date.equals(b.date)) continue;
+                        if (timesOverlap(a.start, a.end, b.start, b.end)) {
+                            any = true;
+                            sb.append("Evaluator double-booked: ").append(e.getKey())
+                                    .append(" on ").append(a.date)
+                                    .append(" -> ").append(a.sessionId).append(":").append(a.slotId)
+                                    .append(" overlaps ").append(b.sessionId).append(":").append(b.slotId)
+                                    .append("\n");
+                        }
+                    }
+                }
+            }
+
+            if (!any) sb.append("No conflicts detected.\n");
+            return sb.toString();
+        }
+
+        private boolean timesOverlap(LocalTime aStart, LocalTime aEnd, LocalTime bStart, LocalTime bEnd) {
+            return aStart.isBefore(bEnd) && bStart.isBefore(aEnd);
+        }
+
+        static class SlotRef {
+            final LocalDate date;
+            final LocalTime start;
+            final LocalTime end;
+            final String sessionId;
+            final String slotId;
+            SlotRef(LocalDate date, LocalTime start, LocalTime end, String sessionId, String slotId) {
+                this.date = date;
+                this.start = start;
+                this.end = end;
+                this.sessionId = sessionId;
+                this.slotId = slotId;
+            }
+        }
     }
 
     static class AwardService {
         private final SubmissionRepo submissionRepo;
         private final EvaluationRepo evaluationRepo;
+        private final VoteRepo voteRepo;
 
-        AwardService(SubmissionRepo submissionRepo, EvaluationRepo evaluationRepo) {
+        AwardService(SubmissionRepo submissionRepo, EvaluationRepo evaluationRepo, VoteRepo voteRepo) {
             this.submissionRepo = submissionRepo;
             this.evaluationRepo = evaluationRepo;
+            this.voteRepo = voteRepo;
         }
 
         AwardResult computeBestByType(PresentationType type) {
@@ -504,22 +731,44 @@ public class Main {
                 if (avg > bestAvg) { bestAvg = avg; best = s; }
             }
 
-            return new AwardResult(type, best, bestAvg);
+            return new AwardResult("Best " + type, best, bestAvg, false);
+        }
+
+        AwardResult computePeoplesChoice() {
+            Map<String, Integer> counts = voteRepo.countVotesBySubmission();
+            if (counts.isEmpty()) return new AwardResult("People's Choice", null, -1, true);
+
+            String winnerId = null;
+            int bestVotes = -1;
+            for (Map.Entry<String, Integer> e : counts.entrySet()) {
+                if (e.getValue() > bestVotes) {
+                    bestVotes = e.getValue();
+                    winnerId = e.getKey();
+                }
+            }
+            Submission win = winnerId == null ? null : submissionRepo.find(winnerId);
+            return new AwardResult("People's Choice", win, bestVotes, true);
         }
 
         static class AwardResult {
-            final PresentationType type;
+            final String awardName;
             final Submission winner;
-            final double avgScore;
-            AwardResult(PresentationType type, Submission winner, double avgScore) {
-                this.type = type;
+            final double scoreOrVotes;
+            final boolean isVotes;
+
+            AwardResult(String awardName, Submission winner, double scoreOrVotes, boolean isVotes) {
+                this.awardName = awardName;
                 this.winner = winner;
-                this.avgScore = avgScore;
+                this.scoreOrVotes = scoreOrVotes;
+                this.isVotes = isVotes;
             }
 
             @Override public String toString() {
-                if (winner == null) return "Best " + type + ": (no winner yet - need evaluations)";
-                return "Best " + type + ": " + winner.title + " (" + winner.submissionId + "), Avg=" + String.format("%.2f", avgScore);
+                if (winner == null) return awardName + ": (no winner yet)";
+                if (isVotes) {
+                    return awardName + ": " + winner.title + " (" + winner.submissionId + "), Votes=" + (int) scoreOrVotes;
+                }
+                return awardName + ": " + winner.title + " (" + winner.submissionId + "), Avg=" + String.format("%.2f", scoreOrVotes);
             }
         }
     }
@@ -539,11 +788,8 @@ public class Main {
     // UI Frame + Navigation
     // ---------------------------
     static class AppFrame extends JFrame {
-        private final AppContext ctx;
         private final CardLayout cards = new CardLayout();
         private final JPanel root = new JPanel(cards);
-
-        private User currentUser;
 
         private final LoginPanel loginPanel;
         private final StudentPanel studentPanel;
@@ -552,16 +798,15 @@ public class Main {
 
         AppFrame(AppContext ctx) {
             super("Seminar Management System (Swing)");
-            this.ctx = ctx;
 
             setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-            setSize(1050, 650);
+            setSize(1200, 700);
             setLocationRelativeTo(null);
 
             loginPanel = new LoginPanel(ctx, this::onLoginSuccess);
-            studentPanel = new StudentPanel(ctx, this::logout);
-            evaluatorPanel = new EvaluatorPanel(ctx, this::logout);
-            coordinatorPanel = new CoordinatorPanel(ctx, this::logout);
+            studentPanel = new StudentPanel(ctx, this::showLogin);
+            evaluatorPanel = new EvaluatorPanel(ctx, this::showLogin);
+            coordinatorPanel = new CoordinatorPanel(ctx, this::showLogin);
 
             root.add(loginPanel, "LOGIN");
             root.add(studentPanel, "STUDENT");
@@ -573,14 +818,11 @@ public class Main {
         }
 
         void showLogin() {
-            currentUser = null;
             loginPanel.reset();
             cards.show(root, "LOGIN");
         }
 
         void onLoginSuccess(User user) {
-            this.currentUser = user;
-
             if (user.role == Role.STUDENT) {
                 studentPanel.load((Student) user);
                 cards.show(root, "STUDENT");
@@ -592,10 +834,6 @@ public class Main {
                 cards.show(root, "COORDINATOR");
             }
         }
-
-        void logout() {
-            showLogin();
-        }
     }
 
     // ---------------------------
@@ -604,7 +842,6 @@ public class Main {
     static class LoginPanel extends JPanel {
         private final AppContext ctx;
         private final JTextField userIdField = new JTextField(18);
-        private final JLabel hint = new JLabel("Demo IDs: S1001 | E2001 | C3001");
         private final Consumer<User> onSuccess;
 
         LoginPanel(AppContext ctx, Consumer<User> onSuccess) {
@@ -612,25 +849,37 @@ public class Main {
             this.onSuccess = onSuccess;
 
             setLayout(new GridBagLayout());
+            setBackground(new Color(240, 248, 255)); // alice blue
             JPanel card = new JPanel();
             card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
             card.setBorder(new EmptyBorder(20, 20, 20, 20));
+            card.setBackground(Color.WHITE);
 
             JLabel title = new JLabel("Seminar Management System");
             title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
+            title.setForeground(new Color(0, 102, 204)); // blue
 
-            JLabel sub = new JLabel("Enter User ID to login (role is determined by ID)");
+            JLabel sub = new JLabel("Enter User ID to login (role determined by ID)");
             sub.setBorder(new EmptyBorder(0, 0, 10, 0));
+            sub.setForeground(new Color(51, 51, 51));
+
+            JLabel hint = new JLabel("Demo IDs: 243UC246FC | E2001 | E2002 | C3001");
+            hint.setForeground(new Color(102, 102, 102));
 
             JButton loginBtn = new JButton(new AbstractAction("Login") {
                 @Override public void actionPerformed(ActionEvent e) { doLogin(); }
             });
+            loginBtn.setBackground(new Color(0, 102, 204));
+            loginBtn.setForeground(Color.WHITE);
+            loginBtn.setOpaque(true);
+            loginBtn.setBorderPainted(false);
 
             card.add(title);
             card.add(Box.createVerticalStrut(8));
             card.add(sub);
 
             JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            row.setBackground(Color.WHITE);
             row.add(new JLabel("User ID:"));
             row.add(userIdField);
             row.add(loginBtn);
@@ -642,9 +891,7 @@ public class Main {
             add(card);
         }
 
-        void reset() {
-            userIdField.setText("");
-        }
+        void reset() { userIdField.setText(""); }
 
         private void doLogin() {
             try {
@@ -659,7 +906,7 @@ public class Main {
     }
 
     // ---------------------------
-    // UI: Student
+    // UI: Student (Register + My submissions + People's Choice)
     // ---------------------------
     static class StudentPanel extends JPanel {
         private final AppContext ctx;
@@ -668,14 +915,22 @@ public class Main {
         private Student student;
 
         private final JLabel header = new JLabel();
-        private final JTextField titleField = new JTextField(28);
-        private final JTextArea abstractArea = new JTextArea(5, 28);
+
+        // Register form
+        private final JTextField titleField = new JTextField(26);
+        private final JTextArea abstractArea = new JTextArea(7, 26);
         private final JTextField supervisorField = new JTextField(20);
         private final JComboBox<PresentationType> typeBox = new JComboBox<>(PresentationType.values());
-        private final JTextField materialPathField = new JTextField(22);
+        private final JTextField materialPathField = new JTextField(20);
 
+        // Table
         private final SubmissionTableModel tableModel = new SubmissionTableModel();
         private final JTable table = new JTable(tableModel);
+
+        // Voting
+        private final DefaultListModel<Submission> voteListModel = new DefaultListModel<>();
+        private final JList<Submission> voteList = new JList<>(voteListModel);
+        private final JLabel voteStatus = new JLabel("Vote status: ...");
 
         StudentPanel(AppContext ctx, Runnable onLogout) {
             this.ctx = ctx;
@@ -683,20 +938,29 @@ public class Main {
 
             setLayout(new BorderLayout(10, 10));
             setBorder(new EmptyBorder(10, 10, 10, 10));
+            setBackground(new Color(245, 245, 250)); // whitesmoke
 
             JPanel top = new JPanel(new BorderLayout());
+            top.setBackground(new Color(70, 130, 180)); // steelblue
             header.setFont(header.getFont().deriveFont(Font.BOLD, 16f));
+            header.setForeground(Color.WHITE);
             top.add(header, BorderLayout.WEST);
 
             JButton logoutBtn = new JButton("Logout");
+            logoutBtn.setBackground(new Color(220, 20, 60)); // crimson
+            logoutBtn.setForeground(Color.WHITE);
+            logoutBtn.setOpaque(true);
+            logoutBtn.setBorderPainted(false);
             logoutBtn.addActionListener(e -> onLogout.run());
             top.add(logoutBtn, BorderLayout.EAST);
 
             add(top, BorderLayout.NORTH);
 
-            JPanel center = new JPanel(new GridLayout(1, 2, 10, 10));
+            JPanel center = new JPanel(new GridLayout(1, 3, 10, 10));
+            center.setBackground(new Color(245, 245, 250));
             center.add(buildRegisterCard());
             center.add(buildMySubsCard());
+            center.add(buildVotingCard());
             add(center, BorderLayout.CENTER);
         }
 
@@ -705,15 +969,21 @@ public class Main {
             header.setText("Student Dashboard: " + s.name + " (" + s.userId + ")");
             supervisorField.setText(s.supervisorName);
             refreshTable();
+            refreshVotingList();
+            refreshVoteStatus();
         }
 
         private JPanel buildRegisterCard() {
             JPanel card = new JPanel();
             card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-            card.setBorder(BorderFactory.createTitledBorder("Register Submission"));
+            card.setBackground(Color.WHITE);
+            javax.swing.border.TitledBorder tb = BorderFactory.createTitledBorder("Register Submission");
+            tb.setTitleColor(new Color(0, 102, 204));
+            card.setBorder(tb);
 
             abstractArea.setLineWrap(true);
             abstractArea.setWrapStyleWord(true);
+            abstractArea.setBackground(new Color(250, 250, 250));
 
             card.add(row("Title:", titleField));
             card.add(Box.createVerticalStrut(6));
@@ -723,6 +993,7 @@ public class Main {
             card.add(Box.createVerticalStrut(6));
 
             JPanel absRow = new JPanel(new BorderLayout(8, 8));
+            absRow.setBackground(Color.WHITE);
             absRow.add(new JLabel("Abstract:"), BorderLayout.NORTH);
             absRow.add(new JScrollPane(abstractArea), BorderLayout.CENTER);
             card.add(absRow);
@@ -730,17 +1001,26 @@ public class Main {
             card.add(Box.createVerticalStrut(6));
 
             JPanel fileRow = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            fileRow.setBackground(Color.WHITE);
             fileRow.add(new JLabel("Material:"));
             materialPathField.setEditable(false);
             fileRow.add(materialPathField);
 
             JButton browse = new JButton("Browse...");
+            browse.setBackground(new Color(100, 149, 237)); // cornflower blue
+            browse.setForeground(Color.WHITE);
+            browse.setOpaque(true);
+            browse.setBorderPainted(false);
             browse.addActionListener(e -> chooseFile());
             fileRow.add(browse);
             card.add(fileRow);
 
             card.add(Box.createVerticalStrut(10));
             JButton submit = new JButton("Register");
+            submit.setBackground(new Color(34, 139, 34)); // forest green
+            submit.setForeground(Color.WHITE);
+            submit.setOpaque(true);
+            submit.setBorderPainted(false);
             submit.addActionListener(e -> doRegister());
             card.add(submit);
 
@@ -749,19 +1029,67 @@ public class Main {
 
         private JPanel buildMySubsCard() {
             JPanel card = new JPanel(new BorderLayout(8, 8));
-            card.setBorder(BorderFactory.createTitledBorder("My Submissions"));
+            card.setBackground(Color.WHITE);
+            javax.swing.border.TitledBorder tb = BorderFactory.createTitledBorder("My Submissions");
+            tb.setTitleColor(new Color(0, 102, 204));
+            card.setBorder(tb);
             table.setFillsViewportHeight(true);
+            table.setBackground(new Color(245, 250, 255));
+            table.setGridColor(new Color(200, 200, 200));
             card.add(new JScrollPane(table), BorderLayout.CENTER);
 
             JButton refresh = new JButton("Refresh");
+            refresh.setBackground(new Color(100, 149, 237));
+            refresh.setForeground(Color.WHITE);
+            refresh.setOpaque(true);
+            refresh.setBorderPainted(false);
             refresh.addActionListener(e -> refreshTable());
             card.add(refresh, BorderLayout.SOUTH);
 
             return card;
         }
 
+        private JPanel buildVotingCard() {
+            JPanel card = new JPanel(new BorderLayout(8, 8));
+            card.setBackground(Color.WHITE);
+            javax.swing.border.TitledBorder tb = BorderFactory.createTitledBorder("People's Choice Voting");
+            tb.setTitleColor(new Color(0, 102, 204));
+            card.setBorder(tb);
+
+            voteList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            voteList.setBackground(new Color(245, 250, 255));
+            card.add(new JScrollPane(voteList), BorderLayout.CENTER);
+
+            JPanel bottom = new JPanel();
+            bottom.setLayout(new BoxLayout(bottom, BoxLayout.Y_AXIS));
+            bottom.setBackground(Color.WHITE);
+            bottom.add(voteStatus);
+            bottom.add(Box.createVerticalStrut(6));
+
+            JButton voteBtn = new JButton("Cast Vote (1 vote only)");
+            voteBtn.setBackground(new Color(255, 140, 0)); // dark orange
+            voteBtn.setForeground(Color.WHITE);
+            voteBtn.setOpaque(true);
+            voteBtn.setBorderPainted(false);
+            voteBtn.addActionListener(e -> castVote());
+            bottom.add(voteBtn);
+
+            bottom.add(Box.createVerticalStrut(6));
+            JButton refreshBtn = new JButton("Refresh List");
+            refreshBtn.setBackground(new Color(100, 149, 237));
+            refreshBtn.setForeground(Color.WHITE);
+            refreshBtn.setOpaque(true);
+            refreshBtn.setBorderPainted(false);
+            refreshBtn.addActionListener(e -> { refreshVotingList(); refreshVoteStatus(); });
+            bottom.add(refreshBtn);
+
+            card.add(bottom, BorderLayout.SOUTH);
+            return card;
+        }
+
         private JPanel row(String label, JComponent comp) {
             JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            p.setBackground(Color.WHITE);
             p.add(new JLabel(label));
             p.add(comp);
             return p;
@@ -791,6 +1119,7 @@ public class Main {
                 abstractArea.setText("");
                 materialPathField.setText("");
                 refreshTable();
+                refreshVotingList();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -799,6 +1128,33 @@ public class Main {
         private void refreshTable() {
             List<Submission> subs = ctx.submissionRepo.byStudent(student.userId);
             tableModel.setData(subs);
+        }
+
+        private void refreshVotingList() {
+            voteListModel.clear();
+            for (Submission s : ctx.submissionRepo.all()) voteListModel.addElement(s);
+        }
+
+        private void refreshVoteStatus() {
+            if (ctx.voteRepo.hasVoted(student.userId)) {
+                String subId = ctx.voteRepo.getVoteOf(student.userId);
+                Submission s = ctx.submissionRepo.find(subId);
+                voteStatus.setText("Vote status: You voted for " + (s == null ? subId : (s.title + " (" + subId + ")")));
+            } else {
+                voteStatus.setText("Vote status: You have not voted yet.");
+            }
+        }
+
+        private void castVote() {
+            try {
+                Submission chosen = voteList.getSelectedValue();
+                if (chosen == null) throw new IllegalArgumentException("Select a submission first.");
+                ctx.voteService.castVote(student.userId, chosen.submissionId);
+                JOptionPane.showMessageDialog(this, "Vote cast for: " + chosen.title);
+                refreshVoteStatus();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Voting Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
@@ -842,7 +1198,6 @@ public class Main {
         private final AssignedTableModel assignedModel = new AssignedTableModel();
         private final JTable assignedTable = new JTable(assignedModel);
 
-        // Evaluation form
         private final JLabel selectedLabel = new JLabel("Selected: (none)");
         private final JSpinner pc = new JSpinner(new SpinnerNumberModel(0, 0, 5, 1));
         private final JSpinner meth = new JSpinner(new SpinnerNumberModel(0, 0, 5, 1));
@@ -858,18 +1213,26 @@ public class Main {
 
             setLayout(new BorderLayout(10, 10));
             setBorder(new EmptyBorder(10, 10, 10, 10));
+            setBackground(new Color(245, 245, 250));
 
             JPanel top = new JPanel(new BorderLayout());
+            top.setBackground(new Color(70, 130, 180));
             header.setFont(header.getFont().deriveFont(Font.BOLD, 16f));
+            header.setForeground(Color.WHITE);
             top.add(header, BorderLayout.WEST);
 
             JButton logoutBtn = new JButton("Logout");
+            logoutBtn.setBackground(new Color(220, 20, 60));
+            logoutBtn.setForeground(Color.WHITE);
+            logoutBtn.setOpaque(true);
+            logoutBtn.setBorderPainted(false);
             logoutBtn.addActionListener(e -> onLogout.run());
             top.add(logoutBtn, BorderLayout.EAST);
 
             add(top, BorderLayout.NORTH);
 
             JPanel center = new JPanel(new GridLayout(1, 2, 10, 10));
+            center.setBackground(new Color(245, 245, 250));
             center.add(buildAssignedCard());
             center.add(buildEvaluationCard());
             add(center, BorderLayout.CENTER);
@@ -884,15 +1247,29 @@ public class Main {
 
         private JPanel buildAssignedCard() {
             JPanel card = new JPanel(new BorderLayout(8, 8));
-            card.setBorder(BorderFactory.createTitledBorder("Assigned Presentations"));
+            card.setBackground(Color.WHITE);
+            javax.swing.border.TitledBorder tb = BorderFactory.createTitledBorder("Assigned Presentations");
+            tb.setTitleColor(new Color(0, 102, 204));
+            card.setBorder(tb);
 
             assignedTable.setFillsViewportHeight(true);
+            assignedTable.setBackground(new Color(245, 250, 255));
+            assignedTable.setGridColor(new Color(200, 200, 200));
             card.add(new JScrollPane(assignedTable), BorderLayout.CENTER);
 
             JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            bottom.setBackground(Color.WHITE);
             JButton select = new JButton("Select");
+            select.setBackground(new Color(100, 149, 237));
+            select.setForeground(Color.WHITE);
+            select.setOpaque(true);
+            select.setBorderPainted(false);
             select.addActionListener(e -> selectRow());
             JButton refresh = new JButton("Refresh");
+            refresh.setBackground(new Color(100, 149, 237));
+            refresh.setForeground(Color.WHITE);
+            refresh.setOpaque(true);
+            refresh.setBorderPainted(false);
             refresh.addActionListener(e -> refreshAssigned());
             bottom.add(select);
             bottom.add(refresh);
@@ -904,7 +1281,10 @@ public class Main {
         private JPanel buildEvaluationCard() {
             JPanel card = new JPanel();
             card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-            card.setBorder(BorderFactory.createTitledBorder("Evaluation (0..5 each)"));
+            card.setBackground(Color.WHITE);
+            javax.swing.border.TitledBorder tb = BorderFactory.createTitledBorder("Evaluation (0..5 each)");
+            tb.setTitleColor(new Color(0, 102, 204));
+            card.setBorder(tb);
 
             comments.setLineWrap(true);
             comments.setWrapStyleWord(true);
@@ -924,6 +1304,10 @@ public class Main {
 
             card.add(Box.createVerticalStrut(10));
             JButton save = new JButton("Save Evaluation");
+            save.setBackground(new Color(34, 139, 34));
+            save.setForeground(Color.WHITE);
+            save.setOpaque(true);
+            save.setBorderPainted(false);
             save.addActionListener(e -> saveEval());
             card.add(save);
 
@@ -1020,7 +1404,7 @@ public class Main {
     }
 
     // ---------------------------
-    // UI: Coordinator
+    // UI: Coordinator (Assignments + Reports + Awards + Conflict report)
     // ---------------------------
     static class CoordinatorPanel extends JPanel {
         private final AppContext ctx;
@@ -1058,21 +1442,28 @@ public class Main {
 
             setLayout(new BorderLayout(10, 10));
             setBorder(new EmptyBorder(10, 10, 10, 10));
+            setBackground(new Color(245, 245, 250));
 
             JPanel top = new JPanel(new BorderLayout());
+            top.setBackground(new Color(70, 130, 180));
             header.setFont(header.getFont().deriveFont(Font.BOLD, 16f));
+            header.setForeground(Color.WHITE);
             top.add(header, BorderLayout.WEST);
 
             JButton logoutBtn = new JButton("Logout");
+            logoutBtn.setBackground(new Color(220, 20, 60));
+            logoutBtn.setForeground(Color.WHITE);
+            logoutBtn.setOpaque(true);
+            logoutBtn.setBorderPainted(false);
             logoutBtn.addActionListener(e -> onLogout.run());
             top.add(logoutBtn, BorderLayout.EAST);
             add(top, BorderLayout.NORTH);
 
             JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, buildLeft(), buildRight());
-            split.setDividerLocation(480);
+            split.setDividerLocation(520);
+            split.setBackground(new Color(245, 245, 250));
             add(split, BorderLayout.CENTER);
 
-            // selection listeners
             sessionList.addListSelectionListener(e -> {
                 if (!e.getValueIsAdjusting()) reloadSlots();
             });
@@ -1087,10 +1478,14 @@ public class Main {
 
         private JPanel buildLeft() {
             JPanel left = new JPanel(new BorderLayout(8, 8));
+            left.setBackground(new Color(245, 245, 250));
 
             JPanel create = new JPanel();
             create.setLayout(new BoxLayout(create, BoxLayout.Y_AXIS));
-            create.setBorder(BorderFactory.createTitledBorder("Create Session + Add Slot"));
+            create.setBackground(Color.WHITE);
+            javax.swing.border.TitledBorder tb = BorderFactory.createTitledBorder("Create Session + Add Slot");
+            tb.setTitleColor(new Color(0, 102, 204));
+            create.setBorder(tb);
 
             JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT));
             row1.add(new JLabel("Date (yyyy-mm-dd):"));
@@ -1171,21 +1566,33 @@ public class Main {
             buttons.add(assignEval);
 
             JPanel reports = new JPanel(new BorderLayout(8, 8));
-            reports.setBorder(BorderFactory.createTitledBorder("Reports + Awards"));
+            reports.setBorder(BorderFactory.createTitledBorder("Reports + Awards + Conflicts"));
             reportArea.setEditable(false);
             reportArea.setLineWrap(true);
             reportArea.setWrapStyleWord(true);
             reports.add(new JScrollPane(reportArea), BorderLayout.CENTER);
 
             JPanel repBtns = new JPanel(new FlowLayout(FlowLayout.LEFT));
-            JButton sched = new JButton("Show Schedule");
+
+            JButton sched = new JButton("Schedule Report");
             sched.addActionListener(e -> reportArea.setText(ctx.reportService.scheduleReport()));
-            JButton evalSum = new JButton("Show Evaluation Summary");
+
+            JButton evalSum = new JButton("Evaluation Summary");
             evalSum.addActionListener(e -> reportArea.setText(ctx.reportService.evaluationSummaryReport()));
+
+            JButton people = new JButton("People's Choice Report");
+            people.addActionListener(e -> reportArea.setText(ctx.reportService.peopleChoiceReport()));
+
+            JButton conflicts = new JButton("Conflict Report");
+            conflicts.addActionListener(e -> reportArea.setText(ctx.reportService.conflictReport(ctx.sessionRepo, ctx.submissionRepo)));
+
             JButton awards = new JButton("Compute Awards");
             awards.addActionListener(e -> showAwards());
+
             repBtns.add(sched);
             repBtns.add(evalSum);
+            repBtns.add(people);
+            repBtns.add(conflicts);
             repBtns.add(awards);
 
             reports.add(repBtns, BorderLayout.SOUTH);
@@ -1198,15 +1605,12 @@ public class Main {
         }
 
         private void refreshAll() {
-            // sessions
             sessionListModel.clear();
             for (SeminarSession s : ctx.sessionRepo.all()) sessionListModel.addElement(s);
 
-            // submissions
             subListModel.clear();
             for (Submission s : ctx.submissionRepo.all()) subListModel.addElement(s);
 
-            // evaluators
             evalListModel.clear();
             for (Evaluator e : ctx.userRepo.allEvaluators()) evalListModel.addElement(e);
 
@@ -1263,7 +1667,7 @@ public class Main {
                 JOptionPane.showMessageDialog(this, "Assigned submission to slot.");
                 reloadSlots();
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Assignment Error", JOptionPane.ERROR_MESSAGE);
             }
         }
 
@@ -1279,16 +1683,19 @@ public class Main {
                 JOptionPane.showMessageDialog(this, "Assigned evaluator to slot.");
                 reloadSlots();
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Assignment Error", JOptionPane.ERROR_MESSAGE);
             }
         }
 
         private void showAwards() {
             AwardService.AwardResult oral = ctx.awardService.computeBestByType(PresentationType.ORAL);
             AwardService.AwardResult poster = ctx.awardService.computeBestByType(PresentationType.POSTER);
+            AwardService.AwardResult peoples = ctx.awardService.computePeoplesChoice();
 
-            String msg = "=== AWARDS ===\n" + oral + "\n" + poster + "\n\n" +
-                    "(People's Choice not implemented here — can be a simple vote counter if you want.)";
+            String msg = "=== AWARDS ===\n"
+                    + oral + "\n"
+                    + poster + "\n"
+                    + peoples + "\n";
             reportArea.setText(msg);
         }
     }
@@ -1298,3 +1705,5 @@ public class Main {
     // ---------------------------
     interface Consumer<T> { void accept(T t); }
 }
+
+
