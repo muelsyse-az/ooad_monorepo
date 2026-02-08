@@ -27,7 +27,7 @@ public class Main {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             AppContext ctx = new AppContext();
-            seedDemoData(ctx);
+            seedDemoData(ctx); 
 
             AppFrame frame = new AppFrame(ctx);
             frame.setVisible(true);
