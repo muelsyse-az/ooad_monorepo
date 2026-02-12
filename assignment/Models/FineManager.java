@@ -3,7 +3,6 @@ package Models;
 public class FineManager {
 
     
-
     public static double calculate_fine_amount(String schemeType, double overstayHours) {
         double amount = 0.0;
 
