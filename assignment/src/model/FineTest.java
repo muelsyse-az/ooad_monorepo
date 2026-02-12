@@ -1,4 +1,4 @@
-package Models;
+package model;
 
 public class FineTest {
     public static void main(String[] args) {
