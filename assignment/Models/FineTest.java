@@ -1,53 +1,71 @@
 package Models;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class FineTest {
     public static void main(String[] args) {
+
+        DatabaseManager.clear_fines_table(); // Start with a fresh slate for testing
+        // --- 0. SYSTEM INITIALIZATION ---
+        System.out.println("--- SYSTEM START: FULL FEATURE TEST ---");
+        DatabaseManager.initialize_fine_table();
         
-        System.out.println("--- SYSTEM START: Initializing Database ---");
-        DatabaseManager.initialize_database();
+
+        // --- 1. TESTING VARIOUS FINE SCHEMES ---
+        System.out.println("\n--- [TEST 1] Testing Calculation Schemes ---");
         
-        List<Fine> fineDatabase = new ArrayList<>();
+        // Scheme A: Fixed (Should be 50.00)
+        FineManager.issue_fine("WAA1111", "Illegal Parking", "Fixed", 0);
+        
+        // Scheme B: Progressive (30 hours -> Tier 2 -> RM 150.00)
+        FineManager.issue_fine("JDT2222", "Overstayed", "Progressive", 30.0);
+        
+        // Scheme C: Hourly (4 hours -> RM 80.00)
+        FineManager.issue_fine("KUL3333", "Overstayed", "Hourly", 4.0);
 
-        // 1. Create Fines
-        Fine fine1 = new Fine("WAA1234", 50.00, "Overstayed > 24 hours", "Fixed");
-        Fine fine2 = new Fine("JDT999", 50.00, "Parked in Reserved Spot", "Fixed");
+        // --- 2. TESTING "ONE FINE PER VEHICLE" RULE ---
+        System.out.println("\n--- [TEST 2] Testing One-Fine Constraint ---");
+        // Attempting to issue another fine to JDT2222 while they still owe RM 150
+        FineManager.issue_fine("JDT2222", "Speeding", "Fixed", 0);
 
-        fineDatabase.add(fine1);
-        fineDatabase.add(fine2);
+        // --- 3. TESTING GATE ACCESS & PAYMENT ---
+        System.out.println("\n--- [TEST 3] Testing Gate Check & Payment ---");
+        
+        // Check KUL3333 (Should be blocked)
+        System.out.print("Exit Gate for KUL3333: ");
+        FineManager.is_vehicle_barred("KUL3333");
 
-        System.out.println("\n--- SAVING NEW FINES TO SQLITE ---");
-        DatabaseManager.save_fine(fine1);
-        DatabaseManager.save_fine(fine2);
+        // Process Payment for KUL3333
+        FineManager.process_payment("KUL3333", "Credit Card");
 
-        // 2. Admin View
-        System.out.println("\n--- ADMIN VIEW: All Outstanding Fines ---");
-        for (Fine f : fineDatabase) {
-            System.out.println(f.toString());
+        // Check KUL3333 again (Should be clear)
+        System.out.print("Exit Gate for KUL3333 after payment: ");
+        FineManager.is_vehicle_barred("KUL3333");
+
+        // --- 4. TESTING REVOCATION (ADMIN UNDO) ---
+        System.out.println("\n--- [TEST 4] Testing Admin Revocation ---");
+        
+        // Let's issue a fine by mistake
+        FineManager.issue_fine("MISTAKE_X", "Wrongful Fine", "Fixed", 0);
+        
+        // Find the ID to revoke it
+        Fine target = DatabaseManager.get_fine("MISTAKE_X", false);
+        if (target != null) {
+            FineManager.revoke_fine(target.getFineID());
         }
 
-        // 3. Customer Pays
-        System.out.println("\n--- EXIT PANEL: Customer WAA1234 is paying their fine... ---");
-        for (Fine f : fineDatabase) {
-            if (f.getVehiclePlate().equals("WAA1234") && !f.isPaid()) {
-                f.pay("Credit Card"); 
-                System.out.println("Payment successful for " + f.getFineID());
-                
-                // BOOM! We save it again to update the row in SQLite!
-                DatabaseManager.save_fine(f); 
-            }
-        }
+        // --- 5. TESTING ADMIN LIST VIEWS & REPORTS ---
+        System.out.println("\n--- [TEST 5] Final Admin Audit ---");
+        
+        DatabaseManager.view_all_unpaid_fines();
 
-        // 4. Final Admin View
-        System.out.println("\n--- ADMIN VIEW: Updated Database ---");
-        for (Fine f : fineDatabase) {
-            System.out.println(f.toString());
-        }
+        DatabaseManager.view_vehicle_fine_history("JDT2222");
 
-        //5. Generate Fine Revenue
-        System.out.println("\n--- ADMIN VIEW: Fine Revenue Report ---");
-        DatabaseManager.generate_fine_revenue_report("2026-02-11");
+        // Check history for KUL3333 (Should show their paid fine)
+        DatabaseManager.view_vehicle_fine_history("KUL3333");
+
+        // Final Revenue Report
+        DatabaseManager.generate_fine_revenue_report("2026-02-12");
+        DatabaseManager.view_all_fines();
+
+        System.out.println("\n--- ALL TESTS COMPLETE ---");
     }
 }

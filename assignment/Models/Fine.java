@@ -23,21 +23,37 @@ public class Fine {
 
     // --- Constructor ---
     // This is called when you create a new Fine using "new Fine(...)"
-    public Fine(String vehiclePlate, double amount, String reason, String fineSchemeType) {
-        this.fineID = generateFineID();
+    private Fine(String fineID, String vehiclePlate, double amount, String reason, String fineSchemeType, boolean isPaid, LocalDateTime issueDate) {
+        this.fineID = fineID;
         this.vehiclePlate = vehiclePlate;
         this.amount = amount;
         this.reason = reason;
         this.fineSchemeType = fineSchemeType;
-        
-        this.issueDate = LocalDateTime.now(); // Automatically captures current date/time
-        this.isPaid = false; // By default, a new fine is unpaid
+        this.isPaid = isPaid;
+        this.issueDate = issueDate;
     }
 
-    // --- Private Helper Method ---
-    private String generateFineID() {
+    // 2. Factory Method for NEW Fines (Clear Name!)
+    public static Fine create_new(String vehiclePlate, double amount, String reason, String fineSchemeType) {
+        // Generates ID and Date automatically
         fineCounter++;
-        return "F-" + fineCounter;
+        String newID = "F-" + fineCounter;
+        LocalDateTime now = LocalDateTime.now();
+        
+        return new Fine(newID, vehiclePlate, amount, reason, fineSchemeType, false, now);
+    }
+
+    // 3. Factory Method for LOADING Fines (Clear Name!)
+    public static Fine load_existing(String fineID, String vehiclePlate, double amount, String reason, String fineSchemeType, boolean isPaid, String dateStr) {
+        
+        // VALIDATION CHECK: Data Integrity
+        if (dateStr == null || dateStr.trim().isEmpty()) {
+            //Stop everything (Good for catching bugs during development)
+            throw new IllegalArgumentException("CRITICAL DATA ERROR: Fine " + fineID + " has no issue date in the database!");
+        }
+
+        LocalDateTime date = LocalDateTime.parse(dateStr);
+        return new Fine(fineID, vehiclePlate, amount, reason, fineSchemeType, isPaid, date);
     }
 
     // --- Core Operations ---
