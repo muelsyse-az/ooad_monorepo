@@ -3,10 +3,10 @@ package model;
 public class FineTest {
     public static void main(String[] args) {
 
-        DatabaseManager.clear_fines_table(); // Start with a fresh slate for testing
+        FineManager.clear_fines_table(); // Start with a fresh slate for testing
         // --- 0. SYSTEM INITIALIZATION ---
         System.out.println("--- SYSTEM START: FULL FEATURE TEST ---");
-        DatabaseManager.initialize_fine_table();
+        FineManager.initialize_fine_table();
         
 
         // --- 1. TESTING VARIOUS FINE SCHEMES ---
@@ -47,7 +47,7 @@ public class FineTest {
         FineManager.issue_fine("MISTAKE_X", "Wrongful Fine", "Fixed", 0);
         
         // Find the ID to revoke it
-        Fine target = DatabaseManager.get_fine("MISTAKE_X", false);
+        Fine target = FineManager.get_fine("MISTAKE_X", false);
         if (target != null) {
             FineManager.revoke_fine(target.getFineID());
         }
@@ -55,16 +55,16 @@ public class FineTest {
         // --- 5. TESTING ADMIN LIST VIEWS & REPORTS ---
         System.out.println("\n--- [TEST 5] Final Admin Audit ---");
         
-        DatabaseManager.view_all_unpaid_fines();
+        FineManager.view_all_unpaid_fines();
 
-        DatabaseManager.view_vehicle_fine_history("JDT2222");
+        FineManager.view_vehicle_fine_history("JDT2222");
 
         // Check history for KUL3333 (Should show their paid fine)
-        DatabaseManager.view_vehicle_fine_history("KUL3333");
+        FineManager.view_vehicle_fine_history("KUL3333");
 
         // Final Revenue Report
-        DatabaseManager.generate_fine_revenue_report("2026-02-12");
-        DatabaseManager.view_all_fines();
+        FineManager.generate_fine_revenue_report("2026-02-12");
+        FineManager.view_all_fines();
 
         System.out.println("\n--- ALL TESTS COMPLETE ---");
     }
