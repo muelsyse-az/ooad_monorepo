@@ -41,6 +41,64 @@ public class FineManager {
         }
     }
 
+//------------------------------------------------------------------------------------------------------------------------------
+//  Only For testing FinePanel UI
+//------------------------------------------------------------------------------------------------------------------------------
+    
+    public static void initialize_dummydataforfine_table() 
+    {
+        // We write standard SQL here. 
+        // Note: SQLite uses INTEGER (0 or 1) for booleans, and TEXT for dates.
+        String createFinesTableSQL = "CREATE TABLE IF NOT EXISTS DummyDataforFine ("
+                + "fineID TEXT PRIMARY KEY, "
+                + "overtimeAmount REAL,"
+                + "paymentWay TEXT,"
+                + "paymentDate TEXT,"
+                + "staffInCharge TEXT,"
+                + "FOREIGN KEY(fineID) REFERENCES fines(fineID)"
+                + ");";
+
+        try (Connection conn = DatabaseManager.connect();
+             Statement stmt = conn.createStatement()) {
+            
+            // Execute the SQL statement
+            stmt.execute(createFinesTableSQL);
+            System.out.println("SUCCESS: Database initialized and 'DummyDataforFine' table is ready.");
+            
+        } catch (SQLException e) {
+            System.out.println("Error creating table: " + e.getMessage());
+        }
+    }
+
+    // Add this to FineManager.java
+    public static String[] get_dummy_details(String fineID) {
+        String sql = "SELECT * FROM DummyDataforFine WHERE fineID = ?";
+        try (Connection conn = DatabaseManager.connect();
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, fineID);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return new String[]{
+                    String.valueOf(rs.getDouble("overtimeAmount")),
+                    rs.getString("paymentWay"),
+                    rs.getString("paymentDate"),
+                    rs.getString("staffInCharge")
+                };
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching dummy data: " + e.getMessage());
+        }
+        // Fallback if no dummy data exists yet [cite: 2026-02-14]
+        return new String[]{"0.00", "N/A", "N/A", "System"};
+    }
+
+
+
+//---------------------------------------------------------------------------------------------------------------------
+
+
     public static Fine get_fine(String vehiclePlate, boolean isPaidStatus) {
         // Translate Java boolean to SQLite integer (true = 1, false = 0)
         int sqlIsPaid = isPaidStatus ? 1 : 0;

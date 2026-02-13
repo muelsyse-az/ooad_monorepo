@@ -7,6 +7,9 @@ import java.sql.Statement;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 public class DatabaseManager 
 {
     // This will create a local file named "ParkingSystem.db" right in your folder
@@ -21,6 +24,15 @@ public class DatabaseManager
             System.out.println("Connection Failed: " + e.getMessage());
         }
         return conn;
+    }
+
+    public static String formatDateTime(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return "N/A";
+        }
+        // Choosing a clean format: Day-Month-Year Hour:Minute AM/PM [cite: 2026-02-14]
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm a");
+        return dateTime.format(formatter);
     }
 
     //------------------------------------------------------------------------------------------------------------------------------

@@ -7,6 +7,7 @@ public class FineTest {
         // --- 0. SYSTEM INITIALIZATION ---
         System.out.println("--- SYSTEM START: FULL FEATURE TEST ---");
         FineManager.initialize_fine_table();
+        FineManager.initialize_dummydataforfine_table();
         
 
         // --- 1. TESTING VARIOUS FINE SCHEMES ---
