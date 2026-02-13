@@ -1,5 +1,10 @@
 package ui;
 
+import model.FineManager;
+import model.DatabaseManager;
+import model.Fine;
+import java.util.List;
+
 import com.formdev.flatlaf.FlatDarkLaf; // or FlatLightLaf
 import com.formdev.flatlaf.FlatLightLaf;
 import javax.swing.*;
@@ -37,18 +42,46 @@ public class MainUI {
         // Create a simple panel with some components to see the styling
         JPanel panel = new JPanel();
 
-        JButton btnEntry = new JButton("Simulate Entry");
-        JButton btnExit = new JButton("Simulate Exit");
         JTextField txtPlate = new JTextField("WAA1234", 15);
-        JLabel lblStatus = new JLabel("Status: Waiting...");
-        JCheckBox chkReceipt = new JCheckBox("Print Receipt");
+        JButton btnCheck = new JButton("Check Unpaid Fines");
+        JButton btnPay = new JButton("Pay Fine");
+        JLabel lblStatus = new JLabel("Enter a plate to check status.");
 
-        panel.add(new JLabel("Vehicle Plate:"));
-        panel.add(txtPlate);
-        panel.add(chkReceipt);
-        panel.add(btnEntry);
-        panel.add(btnExit);
-        panel.add(lblStatus);
+        // 1. Action for the "Check" button
+    btnCheck.addActionListener(e -> {
+        String plate = txtPlate.getText().trim();
+        if (plate.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Please enter a plate number!");
+            return;
+        }
+
+        // Call your backend method!
+        Fine unpaid = DatabaseManager.get_fine(plate, false); 
+
+        if (unpaid != null) {
+            lblStatus.setText("<html><font color='red'><b>UNPAID: RM " + 
+                             unpaid.getAmount() + "</b></font> (ID: " + unpaid.getFineID() + ")</html>");
+        } else {
+            lblStatus.setText("Status: No active fines for " + plate);
+        }
+    });
+
+    // 2. Action for the "Pay" button
+    btnPay.addActionListener(e -> {
+        String plate = txtPlate.getText().trim();
+        // Trigger your payment logic
+        FineManager.process_payment(plate, "Cash"); 
+        
+        // Give feedback to user
+        JOptionPane.showMessageDialog(frame, "Payment processed for " + plate);
+        lblStatus.setText("Status: Payment Recorded.");
+    });
+
+    panel.add(new JLabel("Vehicle Plate:"));
+    panel.add(txtPlate);
+    panel.add(btnCheck);
+    panel.add(btnPay);
+    panel.add(lblStatus);
 
         frame.add(panel);
         frame.setVisible(true);
