@@ -1,10 +1,10 @@
 package ui;
 
-
-import model.DatabaseManager;
 import com.formdev.flatlaf.FlatDarkLaf;
 import javax.swing.*;
 import java.awt.*;
+
+import model.DatabaseManager;
 
 public class MainUI {
 

@@ -5,6 +5,9 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 
+import model.DatabaseManager;
+import model.FineManager;
+
 public class AdminPanel extends JPanel {
 
     // UI Components (Context Variables)
@@ -36,23 +39,30 @@ public class AdminPanel extends JPanel {
     private JPanel createTopConfigPanel() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
         panel.setBorder(BorderFactory.createTitledBorder("System Configuration"));
-
-        // Fine Scheme Selector [cite: 448]
+    
         panel.add(new JLabel("Current Fine Scheme:"));
-
         String[] schemes = {"Option A: Fixed (RM 50)", "Option B: Progressive", "Option C: Hourly"};
         fineSchemeCombo = new JComboBox<>(schemes);
         panel.add(fineSchemeCombo);
-
+    
         JButton btnUpdate = new JButton("Apply New Scheme");
-        btnUpdate.addActionListener(this::handleUpdateScheme); // Link to Button Click
+        btnUpdate.addActionListener(this::handleUpdateScheme);
         panel.add(btnUpdate);
-
-        // Occupancy Metric [cite: 444]
+    
+        // --- NEW: ISSUE FINE BUTTON --- [cite: 2026-02-14]
+        JButton btnIssueFine = new JButton("Issue Fine");
+        btnIssueFine.putClientProperty("JButton.buttonType", "roundRect");
+        btnIssueFine.addActionListener(e -> {
+            // For now, this can just show a message, 
+            // later you can link it to your 'Issue Fine Dialog' [cite: 2026-01-22]
+            JOptionPane.showMessageDialog(this, "Opening Issue Fine wizard...");
+        });
+        panel.add(btnIssueFine);
+    
         lblOccupancyRate = new JLabel("  |  Occupancy: 12% (18/150 Spots)");
         lblOccupancyRate.setFont(lblOccupancyRate.getFont().deriveFont(Font.BOLD));
         panel.add(lblOccupancyRate);
-
+    
         return panel;
     }
 
@@ -94,35 +104,60 @@ public class AdminPanel extends JPanel {
         return panel;
     }
 
-    // --- SECTION 4: FINANCIAL TAB [cite: 445, 447] ---
+    // --- SECTION 4: FINANCIAL TAB
     private JPanel createFinancialPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
-
-        // A. Total Revenue Header
+    
+        // A. Revenue Summary
         JPanel revenuePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         revenuePanel.setBorder(BorderFactory.createTitledBorder("Revenue Summary"));
-
         lblTotalRevenue = new JLabel("Total Revenue Collected: RM 1,250.00");
         lblTotalRevenue.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        lblTotalRevenue.setForeground(new Color(0, 150, 0)); // Dark Green
+        lblTotalRevenue.setForeground(new Color(0, 150, 0));
         revenuePanel.add(lblTotalRevenue);
+    
+        JPanel finesSection = new JPanel(new BorderLayout(5, 5));
+        finesSection.setBorder(BorderFactory.createTitledBorder("Outstanding Unpaid Fines"));
 
-        panel.add(revenuePanel, BorderLayout.NORTH);
+        // Action Bar (Manage All Fines button)
+        JPanel actionBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton btnManageAll = new JButton("Manage All Fines");
+        btnManageAll.addActionListener(e -> {
+            JFrame fineFrame = new JFrame("Fine Management System");
+            fineFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+            fineFrame.setSize(900, 600);
+            fineFrame.add(new FinePanel());
+            fineFrame.setLocationRelativeTo(this);
+            fineFrame.setVisible(true);
+        });
+        actionBar.add(btnManageAll);
+        finesSection.add(actionBar, BorderLayout.NORTH);
 
-        // B. Unpaid Fines Table
-        JPanel finesPanel = new JPanel(new BorderLayout());
-        finesPanel.setBorder(BorderFactory.createTitledBorder("Outstanding Unpaid Fines"));
-
+        // --- LINKING TO DATABASE ---
         String[] columns = {"Fine ID", "Plate", "Amount (RM)", "Reason", "Date"};
         DefaultTableModel model = new DefaultTableModel(columns, 0);
         finesTable = new JTable(model);
 
-        // STUB DATA
-        model.addRow(new Object[]{"F-1002", "KUL3333", "50.00", "Overstayed > 24h", "2026-02-12"});
-        model.addRow(new Object[]{"F-1005", "PEN5555", "100.00", "Illegal Parking", "2026-02-13"});
+        // Fetch live data from FineManager [cite: 2026-02-13]
+        java.util.List<model.Fine> allFines = FineManager.view_all_fines();
+        if (allFines != null) {
+            for (model.Fine f : allFines) {
+                // Only show UNPAID fines in this specific dashboard table [cite: 2026-02-14]
+                if (!f.isPaid()) {
+                    model.addRow(new Object[]{
+                        f.getFineID(),
+                        f.getVehiclePlate(),
+                        String.format("%.2f", f.getAmount()),
+                        f.getReason(),
+                        // Use your custom formatter for a professional look [cite: 2026-02-14]
+                        DatabaseManager.formatDateTime(f.getIssueDate())
+                    });
+                }
+            }
+        }
 
-        finesPanel.add(new JScrollPane(finesTable), BorderLayout.CENTER);
-        panel.add(finesPanel, BorderLayout.CENTER);
+        finesSection.add(new JScrollPane(finesTable), BorderLayout.CENTER);
+        panel.add(finesSection, BorderLayout.CENTER);
 
         return panel;
     }
