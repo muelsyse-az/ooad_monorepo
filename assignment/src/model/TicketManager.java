@@ -31,6 +31,7 @@ public class TicketManager {
         // 3. Create and Save
         Ticket newTicket = Ticket.create_new(plate, spotID, type);
         DatabaseManager.save_ticket(newTicket);
+        ParkingSpotManager.occupy_spot(spotID);
         System.out.println("   [SUCCESS] Ticket generated: " + newTicket.getTicketID());
         return newTicket;
     }
@@ -108,6 +109,10 @@ public class TicketManager {
     
     // --- Helper Method to Delete Ticket ---
     public static void close_ticket(String plate) {
+        Ticket t = DatabaseManager.get_active_ticket(plate);
+        if(t != null) {
+            ParkingSpotManager.free_spot(t.getSpotID());
+        }
         if (DatabaseManager.delete_ticket(plate)) {
             System.out.println("   [INFO] Ticket closed. Gate Open.");
         }
