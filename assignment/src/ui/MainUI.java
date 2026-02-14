@@ -4,6 +4,8 @@ import com.formdev.flatlaf.FlatDarkLaf;
 import javax.swing.*;
 import java.awt.*;
 
+import model.DatabaseManager;
+
 public class MainUI {
 
     public static void main(String[] args) {
@@ -23,7 +25,7 @@ public class MainUI {
             // (If your fines table has an init method, add it too)
             // DatabaseManager.initialize_fines_table();
 
-            createTestFrame();
+            createMainFrame();
         });
 
     }
