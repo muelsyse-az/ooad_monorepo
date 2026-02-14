@@ -1,5 +1,7 @@
 package ui;
 
+
+import model.DatabaseManager;
 import com.formdev.flatlaf.FlatDarkLaf;
 import javax.swing.*;
 import java.awt.*;
@@ -23,7 +25,7 @@ public class MainUI {
             // (If your fines table has an init method, add it too)
             // DatabaseManager.initialize_fines_table();
 
-            createTestFrame();
+            createMainFrame();
         });
 
     }

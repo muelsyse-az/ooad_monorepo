@@ -172,4 +172,61 @@ public class DatabaseManager
         }
         return null; // Lot full for this type
     }
+
+    public static void initialize_vehicle_logs_table() {
+        String sql = "CREATE TABLE IF NOT EXISTS vehicle_logs ("
+                + "logID INTEGER PRIMARY KEY AUTOINCREMENT, "
+                + "ticketID TEXT, "
+                + "vehiclePlate TEXT, "
+                + "spotID TEXT, "
+                + "vehicleType TEXT, "
+                + "entryTime TEXT, "
+                + "exitTime TEXT"
+                + ");";
+    
+        // The catch block below handles errors from connect(), execute(), AND the hidden close()
+        try (Connection conn = connect(); Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+            System.out.println("SUCCESS: 'vehicle_logs' table is ready.");
+        } catch (SQLException e) {
+            System.err.println("Database Error: " + e.getMessage());
+            // For your MMU eBus project, logging the error is crucial for debugging [cite: 2026-01-22]
+        }
+    }
+
+            
+    public static void save_vehicle_log(VehicleLog log) {
+        String sql = "INSERT INTO vehicle_logs(ticketID, vehiclePlate, spotID, vehicleType, entryTime, exitTime) "
+                    + "VALUES(?,?,?,?,?,?)";
+    
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+    
+            pstmt.setString(1, log.getTicketID());
+            pstmt.setString(2, log.getVehiclePlate());
+            pstmt.setString(3, log.getSpotID());
+            pstmt.setString(4, log.getVehicleType());
+            
+            // Use your new formatDateTime utility to keep things consistent [cite: 2026-02-14]
+            pstmt.setString(5, DatabaseManager.formatDateTime(log.getEntryTime()));
+            
+            // Null check for exitTime to prevent crashes [cite: 2026-02-14]
+            if (log.getExitTime() != null) {
+                pstmt.setString(6, DatabaseManager.formatDateTime(log.getExitTime()));
+            } else {
+                pstmt.setNull(6, java.sql.Types.VARCHAR); 
+            }
+    
+            pstmt.executeUpdate(); // IMPORTANT: You forgot to actually execute the statement! [cite: 2026-01-15]
+            System.out.println("Log saved for: " + log.getVehiclePlate());
+    
+        } catch (SQLException e) {
+            // This catch block is mandatory [cite: 2026-02-06, 2026-02-13]
+            System.err.println("Error saving vehicle log: " + e.getMessage());
+        }
+    }
+
 }
+
+
+        
