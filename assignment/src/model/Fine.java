@@ -23,7 +23,7 @@ public class Fine {
 
     // --- Constructor ---
     // This is called when you create a new Fine using "new Fine(...)"
-    private Fine(String fineID, String vehiclePlate, double amount, String reason, String fineSchemeType, boolean isPaid, LocalDateTime issueDate) {
+    public Fine(String fineID, String vehiclePlate, double amount, String reason, String fineSchemeType, boolean isPaid, LocalDateTime issueDate, LocalDateTime paymentDate, String paymentMethod) {
         this.fineID = fineID;
         this.vehiclePlate = vehiclePlate;
         this.amount = amount;
@@ -31,6 +31,8 @@ public class Fine {
         this.fineSchemeType = fineSchemeType;
         this.isPaid = isPaid;
         this.issueDate = issueDate;
+        this.paymentDate = paymentDate;
+        this.paymentMethod = paymentMethod;
     }
 
     // 2. Factory Method for NEW Fines (Clear Name!)
@@ -40,11 +42,11 @@ public class Fine {
         String newID = "F-" + fineCounter;
         LocalDateTime now = LocalDateTime.now();
         
-        return new Fine(newID, vehiclePlate, amount, reason, fineSchemeType, false, now);
+        return new Fine(newID, vehiclePlate, amount, reason, fineSchemeType, false, now, null, null);
     }
 
     // 3. Factory Method for LOADING Fines (Clear Name!)
-    public static Fine load_existing(String fineID, String vehiclePlate, double amount, String reason, String fineSchemeType, boolean isPaid, String dateStr) {
+    public static Fine load_existing(String fineID, String vehiclePlate, double amount, String reason, String fineSchemeType, boolean isPaid, String dateStr, String paymentDateStr, String paymentMethod) {
         
         // VALIDATION CHECK: Data Integrity
         if (dateStr == null || dateStr.trim().isEmpty()) {
@@ -53,7 +55,11 @@ public class Fine {
         }
 
         LocalDateTime date = LocalDateTime.parse(dateStr);
-        return new Fine(fineID, vehiclePlate, amount, reason, fineSchemeType, isPaid, date);
+        LocalDateTime paymentDate = null;
+        if (paymentDateStr != null && !paymentDateStr.trim().isEmpty()) {
+            paymentDate = LocalDateTime.parse(paymentDateStr);
+        }
+        return new Fine(fineID, vehiclePlate, amount, reason, fineSchemeType, isPaid, date, paymentDate, paymentMethod);
     }
 
     // --- Core Operations ---

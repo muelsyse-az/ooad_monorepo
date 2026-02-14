@@ -70,7 +70,6 @@ public class FineManager {
         }
     }
 
-    // Add this to FineManager.java
     public static String[] get_dummy_details(String fineID) {
         String sql = "SELECT * FROM DummyDataforFine WHERE fineID = ?";
         try (Connection conn = DatabaseManager.connect();
@@ -121,6 +120,8 @@ public class FineManager {
                 String reason = rs.getString("reason");
                 String type = rs.getString("fineSchemeType");
                 String issueDateStr = rs.getString("issueDate");
+                String paymentDateStr = rs.getString("paymentDate");
+                String paymentMethod = rs.getString("paymentMethod");
                 System.out.println("DEBUG: Date from DB is " + issueDateStr);
 
                 // Grab the exact boolean state from the database to pass to your constructor
@@ -128,7 +129,7 @@ public class FineManager {
 
 
                 // Rebuild the object using your new, flexible constructor!
-                return Fine.load_existing(id, vehiclePlate, amount, reason, type, dbIsPaid, issueDateStr); 
+                return Fine.load_existing(id, vehiclePlate, amount, reason, type, dbIsPaid, issueDateStr, paymentDateStr, paymentMethod); 
             }
 
         } catch (SQLException e) {
@@ -222,25 +223,6 @@ public class FineManager {
             System.out.println("Error generating report: " + e.getMessage());
         }
     }
-
-    public static boolean delete_fine(String fineID) {
-        String sql = "DELETE FROM fines WHERE fineID = ?";
-
-        try (Connection conn = DatabaseManager.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setString(1, fineID);
-            int rowsAffected = pstmt.executeUpdate();
-
-            // If rowsAffected > 0, it means we successfully found and deleted it
-            return rowsAffected > 0;
-
-        } catch (SQLException e) {
-            System.out.println("Error deleting fine: " + e.getMessage());
-            return false;
-        }
-    }
-
     // ADMIN: View EVERY fine in the database
     public static List<Fine> view_all_fines() {
         List<Fine> list = new ArrayList<>();
@@ -258,7 +240,9 @@ public class FineManager {
                     rs.getString("reason"),
                     rs.getString("fineSchemeType"),
                     rs.getInt("isPaid") == 1,
-                    rs.getString("issueDate")
+                    rs.getString("issueDate"),
+                    rs.getString("paymentDate"),
+                    rs.getString("paymentMethod")
                 ));
             }
         } catch (SQLException e) {
@@ -423,6 +407,24 @@ public class FineManager {
             return true; 
         }
         return false;
+    }
+
+    public static boolean delete_fine(String fineID) {
+        String sql = "DELETE FROM fines WHERE fineID = ?";
+
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, fineID);
+            int rowsAffected = pstmt.executeUpdate();
+
+            // If rowsAffected > 0, it means we successfully found and deleted it
+            return rowsAffected > 0;
+
+        } catch (SQLException e) {
+            System.out.println("Error deleting fine: " + e.getMessage());
+            return false;
+        }
     }
 
     // --- 4. ADMIN: REVOKE FINE (Undo Mistake) ---
