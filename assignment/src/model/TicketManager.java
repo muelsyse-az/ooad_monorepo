@@ -83,7 +83,7 @@ public class TicketManager {
         double parkingFee = hours * hourlyRate;
 
         // 5. Check for Unpaid Fines
-        Fine unpaidFine = DatabaseManager.get_fine(plate, false);
+        Fine unpaidFine = FineManager.get_fine(plate, false);
         double fineAmount = (unpaidFine != null) ? unpaidFine.getAmount() : 0.0;
         
         // 6. Return Total
@@ -95,7 +95,7 @@ public class TicketManager {
     public static void process_successful_payment(String plate, String paymentMethod) {
         
         // 1. Pay any outstanding fines first
-        Fine unpaidFine = DatabaseManager.get_fine(plate, false);
+        Fine unpaidFine = FineManager.get_fine(plate, false);
         if (unpaidFine != null) {
             System.out.println("   [PAYMENT] Clearing outstanding fine of RM " + unpaidFine.getAmount());
             FineManager.process_payment(plate, paymentMethod); 
