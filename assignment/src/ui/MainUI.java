@@ -1,25 +1,17 @@
 package ui;
 
-import model.FineManager;
-import model.DatabaseManager;
-import model.Fine;
-import java.util.List;
-
-import com.formdev.flatlaf.FlatDarkLaf; // or FlatLightLaf
-import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.FlatDarkLaf;
 import javax.swing.*;
+import java.awt.*;
 
 public class MainUI {
 
     public static void main(String[] args) {
         // 1. SETUP LOOK AND FEEL
         try {
-            // Choose your theme here:
-            // FlatLightLaf.setup();  // Clean Light Theme
-            FlatDarkLaf.setup();      // Modern Dark Theme
-            // FlatIntelliJLaf.setup(); // Like IntelliJ IDEA Light
-            // FlatDarculaLaf.setup();  // Like IntelliJ IDEA Dark
-
+            FlatDarkLaf.setup(); // Modern Dark Theme
+            UIManager.put("Button.arc", 10); // Rounded buttons
+            UIManager.put("Component.arc", 10);
             System.out.println("Success: FlatLaf initialized.");
         } catch (Exception ex) {
             System.err.println("Failed to initialize FlatLaf");
@@ -27,63 +19,29 @@ public class MainUI {
 
         // 2. LAUNCH APPLICATION
         SwingUtilities.invokeLater(() -> {
-            // For now, we just open a test frame since we have no real UI yet
-            createTestFrame();
+            createMainFrame();
         });
     }
 
-    // Temporary method to verify it works
-    private static void createTestFrame() {
-        JFrame frame = new JFrame("Parking System - FlatLaf Test");
+    private static void createMainFrame() {
+        JFrame frame = new JFrame("Parking Lot Management System - Group X");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(500, 400);
+        frame.setSize(1000, 700);
         frame.setLocationRelativeTo(null); // Center on screen
 
-        // Create a simple panel with some components to see the styling
-        JPanel panel = new JPanel();
+        // --- MAIN TABS ---
+        JTabbedPane mainTabs = new JTabbedPane();
 
-        JTextField txtPlate = new JTextField("WAA1234", 15);
-        JButton btnCheck = new JButton("Check Unpaid Fines");
-        JButton btnPay = new JButton("Pay Fine");
-        JLabel lblStatus = new JLabel("Enter a plate to check status.");
+        // TAB 1: Entry / Exit Panel (Stub for now)
+        JPanel entryExitStub = new JPanel(new BorderLayout());
+        entryExitStub.add(new JLabel("Entry/Exit Interface Coming Soon...", SwingConstants.CENTER));
+        mainTabs.addTab("Entry & Exit Operations", new ImageIcon(), entryExitStub, "Process Vehicles");
 
-        // 1. Action for the "Check" button
-    btnCheck.addActionListener(e -> {
-        String plate = txtPlate.getText().trim();
-        if (plate.isEmpty()) {
-            JOptionPane.showMessageDialog(frame, "Please enter a plate number!");
-            return;
-        }
+        // TAB 2: Admin Dashboard (The class we just made)
+        AdminPanel adminPanel = new AdminPanel();
+        mainTabs.addTab("Admin Dashboard", new ImageIcon(), adminPanel, "View Reports & Settings");
 
-        // Call your backend method!
-        Fine unpaid = DatabaseManager.get_fine(plate, false); 
-
-        if (unpaid != null) {
-            lblStatus.setText("<html><font color='red'><b>UNPAID: RM " + 
-                             unpaid.getAmount() + "</b></font> (ID: " + unpaid.getFineID() + ")</html>");
-        } else {
-            lblStatus.setText("Status: No active fines for " + plate);
-        }
-    });
-
-    // 2. Action for the "Pay" button
-    btnPay.addActionListener(e -> {
-        String plate = txtPlate.getText().trim();
-        // Trigger your payment logic
-        FineManager.process_payment(plate, "Cash"); 
-        
-        // Give feedback to user
-        JOptionPane.showMessageDialog(frame, "Payment processed for " + plate);
-        lblStatus.setText("Status: Payment Recorded.");
-    });
-
-    panel.add(new JLabel("Vehicle Plate:"));
-    panel.add(txtPlate);
-    panel.add(btnCheck);
-    panel.add(btnPay);
-    panel.add(lblStatus);
-
-        frame.add(panel);
+        frame.add(mainTabs);
         frame.setVisible(true);
     }
 }
