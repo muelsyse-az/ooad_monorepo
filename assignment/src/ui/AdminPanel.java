@@ -6,6 +6,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 
 import model.DatabaseManager;
+import model.Fine;
 import model.FineManager;
 
 public class AdminPanel extends JPanel {
@@ -53,9 +54,17 @@ public class AdminPanel extends JPanel {
         JButton btnIssueFine = new JButton("Issue Fine");
         btnIssueFine.putClientProperty("JButton.buttonType", "roundRect");
         btnIssueFine.addActionListener(e -> {
-            // For now, this can just show a message, 
-            // later you can link it to your 'Issue Fine Dialog' [cite: 2026-01-22]
-            JOptionPane.showMessageDialog(this, "Opening Issue Fine wizard...");
+            // Get the parent JFrame
+            JFrame parent = (JFrame) SwingUtilities.getWindowAncestor(this);
+            IssueFineDialog dialog = new IssueFineDialog(parent);
+            dialog.setVisible(true);
+        
+            // If the user clicked confirm and it saved successfully, refresh the UI [cite: 2026-02-14]
+            if (dialog.isSucceeded()) {
+                JOptionPane.showMessageDialog(this, "Fine issued successfully!");
+                // Call a method to reload your Financial Reports table [cite: 2026-02-13]
+                refreshFinancialTable(); 
+            }
         });
         panel.add(btnIssueFine);
     
@@ -168,4 +177,26 @@ public class AdminPanel extends JPanel {
         JOptionPane.showMessageDialog(this, "Fine Scheme Updated to:\n" + selected);
         // TODO: Call FineManager.setScheme(selected) here later
     }
+
+    public void refreshFinancialTable() {
+    // Get the current model [cite: 2026-02-13]
+    DefaultTableModel model = (DefaultTableModel) finesTable.getModel();
+    model.setRowCount(0); // Clear current rows
+
+    // Fetch live data [cite: 2026-02-13, 2026-02-14]
+    java.util.List<Fine> allFines = FineManager.view_all_fines();
+    if (allFines != null) {
+        for (Fine f : allFines) {
+            if (!f.isPaid()) {
+                model.addRow(new Object[]{
+                    f.getFineID(),
+                    f.getVehiclePlate(),
+                    String.format("%.2f", f.getAmount()),
+                    f.getReason(),
+                    DatabaseManager.formatDateTime(f.getIssueDate())
+                });
+            }
+        }
+    }
+}
 }

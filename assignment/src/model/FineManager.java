@@ -140,7 +140,7 @@ public class FineManager {
         return null; 
     }
 
-    public static void save_fine(Fine fine) 
+    public static boolean save_fine(Fine fine) 
     {
         // SQLite superpower: INSERT OR REPLACE handles both new fines AND updating paid fines!
         String sql = "INSERT OR REPLACE INTO fines "
@@ -170,10 +170,11 @@ public class FineManager {
             // Execute the save!
             pstmt.executeUpdate();
             System.out.println("   [DB SUCCESS] Saved fine " + fine.getFineID() + " to SQLite.");
-
+            return true;
         } catch (SQLException e) 
         {
             System.out.println("Error saving fine to database: " + e.getMessage());
+            return false;
         }
     }
 
