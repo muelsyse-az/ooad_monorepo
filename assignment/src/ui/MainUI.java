@@ -25,11 +25,15 @@ public class MainUI {
             System.err.println("Failed to initialize FlatLaf");
         }
 
-        // 2. LAUNCH APPLICATION
         SwingUtilities.invokeLater(() -> {
-            // For now, we just open a test frame since we have no real UI yet
+            DatabaseManager.initialize_ticket_table();
+            DatabaseManager.initialize_vehicle_logs_table();
+            // (If your fines table has an init method, add it too)
+            // DatabaseManager.initialize_fines_table();
+
             createTestFrame();
         });
+
     }
 
     // Temporary method to verify it works

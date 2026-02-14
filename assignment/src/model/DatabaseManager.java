@@ -6,6 +6,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import model.Fine;
+
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -108,6 +110,71 @@ public class DatabaseManager
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             return false;
+        }
+    }
+    public static Fine get_fine(String plate, boolean isPaid) {
+        String sql = "SELECT * FROM fines WHERE vehiclePlate = ? AND isPaid = ? LIMIT 1";
+
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, plate);
+            pstmt.setInt(2, isPaid ? 1 : 0);
+
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return Fine.load_existing(
+                        rs.getString("fineID"),
+                        rs.getString("vehiclePlate"),
+                        rs.getDouble("amount"),
+                        rs.getString("reason"),
+                        rs.getString("fineSchemeType"),
+                        rs.getInt("isPaid") == 1,
+                        rs.getString("issueDate")
+                );
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching fine: " + e.getMessage());
+        }
+        return null;
+    }
+    public static void initialize_vehicle_logs_table() {
+        String sql = "CREATE TABLE IF NOT EXISTS vehicle_logs ("
+                + "logID INTEGER PRIMARY KEY AUTOINCREMENT, "
+                + "ticketID TEXT, "
+                + "vehiclePlate TEXT, "
+                + "spotID TEXT, "
+                + "vehicleType TEXT, "
+                + "entryTime TEXT, "
+                + "exitTime TEXT"
+                + ");";
+
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+            System.out.println("SUCCESS: 'vehicle_logs' table is ready.");
+        } catch (SQLException e) {
+            System.out.println("Error initializing vehicle_logs table: " + e.getMessage());
+        }
+    }
+    public static void save_vehicle_log(VehicleLog log) {
+        String sql = "INSERT INTO vehicle_logs(ticketID, vehiclePlate, spotID, vehicleType, entryTime, exitTime) "
+                + "VALUES(?,?,?,?,?,?)";
+
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, log.getTicketID());
+            pstmt.setString(2, log.getVehiclePlate());
+            pstmt.setString(3, log.getSpotID());
+            pstmt.setString(4, log.getVehicleType());
+            pstmt.setString(5, log.getEntryTime().toString());
+            pstmt.setString(6, log.getExitTime().toString());
+
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error saving vehicle log: " + e.getMessage());
         }
     }
 }

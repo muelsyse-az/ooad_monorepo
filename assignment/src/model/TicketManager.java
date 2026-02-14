@@ -105,11 +105,38 @@ public class TicketManager {
 
         System.out.println("   [COMPLETE] Transaction finished. Have a nice day!");
     }
-    
-    // --- Helper Method to Delete Ticket ---
+
     public static void close_ticket(String plate) {
-        if (DatabaseManager.delete_ticket(plate)) {
-            System.out.println("   [INFO] Ticket closed. Gate Open.");
+
+        Ticket t = DatabaseManager.get_active_ticket(plate);
+
+        if (t == null) {
+            System.out.println("   [ERROR] No active ticket found for " + plate);
+            return;
+        }
+
+        // exit time is NOW
+        LocalDateTime exit = LocalDateTime.now();
+
+        // save history log (plate, type, entry, exit)
+        VehicleLog log = new VehicleLog(
+                t.getTicketID(),
+                t.getVehiclePlate(),
+                t.getSpotID(),
+                t.getVehicleType(),
+                t.getEntryTime(),
+                exit
+        );
+        DatabaseManager.save_vehicle_log(log);
+
+        // keep your existing behavior: remove active ticket after exit
+        boolean success = DatabaseManager.delete_ticket(plate);
+
+        if (success) {
+            System.out.println("   [INFO] Ticket closed + exit logged for " + plate + ". Gate opening...");
+        } else {
+            System.out.println("   [ERROR] Could not close ticket. Database error.");
         }
     }
+
 }
