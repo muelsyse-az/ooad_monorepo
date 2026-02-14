@@ -56,7 +56,7 @@ public class MainUI {
         }
 
         // Call your backend method!
-        Fine unpaid = DatabaseManager.get_fine(plate, false); 
+        Fine unpaid = FineManager.get_fine(plate, false); 
 
         if (unpaid != null) {
             lblStatus.setText("<html><font color='red'><b>UNPAID: RM " + 
