@@ -37,7 +37,7 @@ public class IssueFineDialog extends JDialog {
         mainForm.add(reasonRow);
         mainForm.add(Box.createVerticalStrut(10));
 
-        // 3. Manual Amount Row (Hidden if Overstayed) [cite: 2026-02-14]
+        // 3. Manual Amount Row (Hidden if Overstayed)[ite: 2026-02-14]c
         amountRow = createFieldRow("Fine Amount (RM):", txtAmount);
         mainForm.add(amountRow);
 
