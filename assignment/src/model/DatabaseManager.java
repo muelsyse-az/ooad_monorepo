@@ -112,69 +112,64 @@ public class DatabaseManager
             return false;
         }
     }
-    public static Fine get_fine(String plate, boolean isPaid) {
-        String sql = "SELECT * FROM fines WHERE vehiclePlate = ? AND isPaid = ? LIMIT 1";
 
-        try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+    //------------------------------------------------------------------------------------------------------------------------------
+    //  SPOT Table Operations
+    //------------------------------------------------------------------------------------------------------------------------------
 
-            pstmt.setString(1, plate);
-            pstmt.setInt(2, isPaid ? 1 : 0);
-
-            ResultSet rs = pstmt.executeQuery();
-
-            if (rs.next()) {
-                return Fine.load_existing(
-                        rs.getString("fineID"),
-                        rs.getString("vehiclePlate"),
-                        rs.getDouble("amount"),
-                        rs.getString("reason"),
-                        rs.getString("fineSchemeType"),
-                        rs.getInt("isPaid") == 1,
-                        rs.getString("issueDate")
-                );
-            }
-        } catch (SQLException e) {
-            System.out.println("Error fetching fine: " + e.getMessage());
-        }
-        return null;
-    }
-    public static void initialize_vehicle_logs_table() {
-        String sql = "CREATE TABLE IF NOT EXISTS vehicle_logs ("
-                + "logID INTEGER PRIMARY KEY AUTOINCREMENT, "
-                + "ticketID TEXT, "
-                + "vehiclePlate TEXT, "
-                + "spotID TEXT, "
-                + "vehicleType TEXT, "
-                + "entryTime TEXT, "
-                + "exitTime TEXT"
+    public static void initialize_spot_table() {
+        String sql = "CREATE TABLE IF NOT EXISTS spots ("
+                + "spotID TEXT PRIMARY KEY, "
+                + "floor INTEGER, "
+                + "row INTEGER, "
+                + "type TEXT, "
+                + "isOccupied INTEGER DEFAULT 0"
                 + ");";
-
-        try (Connection conn = connect();
-             Statement stmt = conn.createStatement()) {
+        try (Connection conn = connect(); Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
-            System.out.println("SUCCESS: 'vehicle_logs' table is ready.");
         } catch (SQLException e) {
-            System.out.println("Error initializing vehicle_logs table: " + e.getMessage());
+            System.out.println("Error init spots: " + e.getMessage());
         }
     }
-    public static void save_vehicle_log(VehicleLog log) {
-        String sql = "INSERT INTO vehicle_logs(ticketID, vehiclePlate, spotID, vehicleType, entryTime, exitTime) "
-                + "VALUES(?,?,?,?,?,?)";
 
-        try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setString(1, log.getTicketID());
-            pstmt.setString(2, log.getVehiclePlate());
-            pstmt.setString(3, log.getSpotID());
-            pstmt.setString(4, log.getVehicleType());
-            pstmt.setString(5, log.getEntryTime().toString());
-            pstmt.setString(6, log.getExitTime().toString());
-
+    // Save or Update a spot's status
+    public static void update_spot_status(String spotID, boolean isOccupied) {
+        String sql = "UPDATE spots SET isOccupied = ? WHERE spotID = ?";
+        try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, isOccupied ? 1 : 0);
+            pstmt.setString(2, spotID);
             pstmt.executeUpdate();
         } catch (SQLException e) {
-            System.out.println("Error saving vehicle log: " + e.getMessage());
+            System.out.println("Error updating spot: " + e.getMessage());
         }
+    }
+
+    // Used to populate the lot initially
+    public static void save_spot(ParkingSpot spot) {
+        String sql = "INSERT OR REPLACE INTO spots (spotID, floor, row, type, isOccupied) VALUES(?,?,?,?,?)";
+        try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, spot.getSpotID());
+            pstmt.setInt(2, spot.getFloor());
+            pstmt.setInt(3, spot.getRow());
+            pstmt.setString(4, spot.getType().toString());
+            pstmt.setInt(5, spot.isOccupied() ? 1 : 0);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error saving spot: " + e.getMessage());
+        }
+    }
+
+    // Find a spot that matches type and is free
+    public static String find_available_spot(String type) {
+        // Simple logic: Find first free spot of this exact type
+        String sql = "SELECT spotID FROM spots WHERE type = ? AND isOccupied = 0 LIMIT 1";
+        try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, type);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getString("spotID");
+        } catch (SQLException e) {
+            System.out.println("Error finding spot: " + e.getMessage());
+        }
+        return null; // Lot full for this type
     }
 }

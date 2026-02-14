@@ -16,7 +16,7 @@ public class FineDetailsDialog extends JDialog {
         JPanel contentPanel = new JPanel(new GridLayout(0, 2, 10, 10));
         contentPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        // Data from your original Fine table [cite: 2026-02-13]
+        // Data from your original Fine table
         addRow(contentPanel, "Fine ID:", fine.getFineID());
         addRow(contentPanel, "Vehicle Plate:", fine.getVehiclePlate());
         addRow(contentPanel, "Base Amount:", "RM " + fine.getAmount());
@@ -24,8 +24,12 @@ public class FineDetailsDialog extends JDialog {
         addRow(contentPanel, "Issue Date:", DatabaseManager.formatDateTime(fine.getIssueDate()));
 
         // Data from the Dummy Table (overtime, etc.)
-        addRow(contentPanel, "Overtime Charge:", "RM " + dummyData[0]);
-        addRow(contentPanel, "Payment Method:", dummyData[1]);
+        addRow(contentPanel, "Overtime (hours):", dummyData[0]);
+        String payment_method = fine.getPaymentMethod();
+        if (payment_method == null || payment_method.isEmpty()) {
+            payment_method = "N/A";
+        }
+        addRow(contentPanel, "Payment Method:", payment_method);
         addRow(contentPanel, "Payment Date:", DatabaseManager.formatDateTime(fine.getPaymentDate()));
         addRow(contentPanel, "Staff In-Charge:", dummyData[3]);
 

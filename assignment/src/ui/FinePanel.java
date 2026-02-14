@@ -25,9 +25,12 @@ public class FinePanel extends JPanel {
         searchPanel.add(new JLabel("Vehicle Plate:"));
         txtPlate = new JTextField(15);
         JButton btnSearch = new JButton("Search");
-        
+        JButton btnRevoke = new JButton("Revoke Fine");
+        btnRevoke.putClientProperty("JButton.buttonType", "borderless");
+        btnRevoke.setForeground(Color.RED);
         searchPanel.add(txtPlate);
         searchPanel.add(btnSearch);
+        searchPanel.add(btnRevoke);
         add(searchPanel, BorderLayout.NORTH);
 
         // --- CENTER SECTION: THE TABLE ---
@@ -50,7 +53,7 @@ public class FinePanel extends JPanel {
         JButton btnPay = new JButton("Process Payment");
         actionPanel.add(btnPay);
         add(actionPanel, BorderLayout.SOUTH);
-        JButton btnDetails = new JButton("View Deep Details");
+        JButton btnDetails = new JButton("View Details");
         actionPanel.add(btnDetails);
         btnDetails.addActionListener(e -> {
             // 1. Get the selected row 
@@ -85,6 +88,36 @@ public class FinePanel extends JPanel {
             }
         });
 
+        actionPanel.add(btnRevoke);
+        btnRevoke.addActionListener(e -> {
+            int selectedRow = fineTable.getSelectedRow();
+            
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(this, "Please select a fine from the table to revoke.");
+                return;
+            }
+        
+            // Get the Fine ID (Column 0) for the specific row [cite: 2026-02-13]
+            String fineID = tableModel.getValueAt(selectedRow, 0).toString();
+        
+            // Add a confirmation dialog before deleting [cite: 2026-01-18, 2026-02-13]
+            int confirm = JOptionPane.showConfirmDialog(this, 
+                "Are you sure you want to PERMANENTLY revoke Fine ID: " + fineID + "?", 
+                "Confirm Revocation", 
+                JOptionPane.YES_NO_OPTION);
+        
+            if (confirm == JOptionPane.YES_OPTION) {
+                // Call your backend function [cite: 2026-01-15, 2026-02-13]
+                boolean success = FineManager.delete_fine(fineID); 
+        
+                if (success) {
+                    JOptionPane.showMessageDialog(this, "Fine " + fineID + " revoked successfully.");
+                    updateTable(); // This refreshes the UI automatically [cite: 2026-02-13, 2026-02-14]
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to revoke fine. Check database connection.");
+                }
+            }
+        });
         // --- LOGIC ---
         // Search button now triggers the filter
         btnSearch.addActionListener(e -> updateTable());
@@ -145,7 +178,7 @@ public class FinePanel extends JPanel {
         }
     
         // Call your FineManager logic
-        FineManager.process_payment(plate, "Cash"); 
+        FineManager.process_payment(plate, "System Edits"); 
         
         JOptionPane.showMessageDialog(this, "Payment successful for Fine ID: " + fineID);
         
