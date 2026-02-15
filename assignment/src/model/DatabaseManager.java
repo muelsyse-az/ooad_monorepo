@@ -159,6 +159,10 @@ public class DatabaseManager
         }
     }
 
+//----------------------------------------------------------------------------------------------------------------------
+//  VEHICLE LOGS Table Operations
+//----------------------------------------------------------------------------------------------------------------------
+
     // Find a spot that matches type and is free
     public static String find_available_spot(String type) {
         // Simple logic: Find first free spot of this exact type
