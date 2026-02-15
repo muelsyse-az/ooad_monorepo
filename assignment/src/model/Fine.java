@@ -6,7 +6,6 @@ import java.time.format.DateTimeFormatter;
 public class Fine {
     
     // Static counter to generate unique IDs automatically
-    private static int fineCounter = 1000;
 
     // --- Attributes (Private for Encapsulation) ---
     private String fineID;
@@ -35,14 +34,20 @@ public class Fine {
         this.paymentMethod = paymentMethod;
     }
 
-    // 2. Factory Method for NEW Fines (Clear Name!)
     public static Fine create_new(String vehiclePlate, double amount, String reason, String fineSchemeType) {
-        // Generates ID and Date automatically
-        fineCounter++;
-        String newID = "F-" + fineCounter;
-        LocalDateTime now = LocalDateTime.now();
-        
-        return new Fine(newID, vehiclePlate, amount, reason, fineSchemeType, false, now, null, null);
+        // Pass the calculated ID to the private constructor
+        String id = FineManager.get_next_fine_id();
+        return new Fine(
+            id, 
+            vehiclePlate, 
+            amount, 
+            reason, 
+            fineSchemeType, 
+            false, // isPaid
+            java.time.LocalDateTime.now(), 
+            null,  // paymentDate
+            null   // paymentMethod
+        );
     }
 
     // 3. Factory Method for LOADING Fines (Clear Name!)
