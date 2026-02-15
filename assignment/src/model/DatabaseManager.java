@@ -38,7 +38,7 @@ public class DatabaseManager
     }
 
     //------------------------------------------------------------------------------------------------------------------------------
-    //  TICKET Table Operations (Add this section to DatabaseManager.java)
+    //  TICKET Table Operations
     //------------------------------------------------------------------------------------------------------------------------------
 
     public static void initialize_ticket_table() {
@@ -111,6 +111,55 @@ public class DatabaseManager
         } catch (SQLException e) {
             return false;
         }
+    }
+
+    // --- For Admin Dashboard (View All Active Tickets) ---
+    public static java.util.List<Ticket> get_all_tickets() {
+        java.util.List<Ticket> list = new java.util.ArrayList<>();
+        String sql = "SELECT * FROM tickets ORDER BY entryTime DESC"; // Newest first
+
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                list.add(Ticket.load_existing(
+                    rs.getString("ticketID"),
+                    rs.getString("vehiclePlate"),
+                    rs.getString("spotID"),
+                    rs.getString("vehicleType"),
+                    rs.getString("entryTime")
+                ));
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching all tickets: " + e.getMessage());
+        }
+        return list;
+    }
+
+    // --- Search/Filter for Admin ---
+    public static Ticket find_ticket_by_id_or_plate(String query) {
+        String sql = "SELECT * FROM tickets WHERE ticketID = ? OR vehiclePlate = ?";
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, query);
+            pstmt.setString(2, query);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return Ticket.load_existing(
+                    rs.getString("ticketID"),
+                    rs.getString("vehiclePlate"),
+                    rs.getString("spotID"),
+                    rs.getString("vehicleType"),
+                    rs.getString("entryTime")
+                );
+            }
+        } catch (SQLException e) {
+            System.out.println("Error searching ticket: " + e.getMessage());
+        }
+        return null;
     }
 
     //------------------------------------------------------------------------------------------------------------------------------
