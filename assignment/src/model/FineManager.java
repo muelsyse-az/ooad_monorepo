@@ -437,5 +437,34 @@ public class FineManager {
         } else {
             System.out.println("   [ERROR] Could not revoke fine " + fineID + ". ID not found.");
         }
-    } 
+    }
+
+    public static String get_next_fine_id() {
+        String sql = "SELECT fineID FROM fines";
+        int maxId = 1000; // Default start ID if DB is empty
+
+        try (java.sql.Connection conn = DatabaseManager.connect();
+            java.sql.Statement stmt = conn.createStatement();
+            java.sql.ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                String idStr = rs.getString("fineID");
+                // Assuming format "F-1000", split by "-" and parse the number
+                if (idStr != null && idStr.startsWith("F-")) {
+                    try {
+                        int idNum = Integer.parseInt(idStr.split("-")[1]);
+                        if (idNum > maxId) {
+                            maxId = idNum;
+                        }
+                    } catch (NumberFormatException e) {
+                        // Ignore malformed IDs
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error generating ID: " + e.getMessage());
+        }
+        
+        return "F-" + (maxId + 1);
+    }
 }
